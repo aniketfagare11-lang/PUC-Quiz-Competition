@@ -1,0 +1,13 @@
+# Dependencies and generated build output
+node_modules/
+dist/
+build/
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Local development artifacts
+.tmp-chrome-profile*/
+devdb/

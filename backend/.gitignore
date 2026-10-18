@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.tmp-chrome-profile*/
+devdb/
+dist/
+build/
