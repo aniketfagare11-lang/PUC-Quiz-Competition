@@ -11,6 +11,12 @@ const optionSchema = new mongoose.Schema(
 const questionSchema = new mongoose.Schema(
   {
     round: { type: Number, required: true, default: 1 },
+    set: {
+  type: String,
+  enum: ['A', 'B', 'C', 'D'],
+  required: true,
+  default: 'A',
+},
     type: { type: String, enum: ['mcq', 'text', 'image'], default: 'mcq' },
     order: { type: Number, required: true }, // 1..N (display number)
     questionText: { type: String, required: true },
@@ -23,6 +29,6 @@ const questionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-questionSchema.index({ round: 1, order: 1 });
+questionSchema.index({ round: 1, set: 1, order: 1 });
 
 module.exports = mongoose.model('Question', questionSchema);

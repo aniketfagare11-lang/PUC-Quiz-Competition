@@ -1,6 +1,7 @@
 const Team = require('../models/Team');
 const Attempt = require('../models/Attempt');
 const Question = require('../models/Question');
+const QuizConfig = require('../models/QuizConfig');
 const { scoreAttempt } = require('../utils/scoring');
 
 const TOTAL_TEAMS = Number(process.env.TOTAL_TEAMS) || 20;
@@ -163,18 +164,18 @@ exports.resetAttempt = async (req, res, next) => {
 // GET /api/admin/questions?round=1|2
 exports.questions = async (req, res, next) => {
   try {
-    const round = Number(req.query.round);
+    const setName = String(req.query.set || 'A').toUpperCase();
 
-    if (![1, 2].includes(round)) {
-      return res.status(400).json({ message: 'Round must be 1 or 2' });
-    }
+if (!['A', 'B', 'C', 'D'].includes(setName)) {
+  return res.status(400).json({ message: 'Set must be A, B, C or D' });
+}
 
-    const questions = await Question.find({ round })
-      .sort({ order: 1 })
-      .select('-correctAnswer -explanation')
-      .lean();
+const questions = await Question.find({ round: 1, set: setName })
+  .sort({ order: 1 })
+  .select('-correctAnswer -explanation')
+  .lean();
 
-    return res.json({ questions });
+return res.json({ questions });
   } catch (err) {
     return next(err);
   }
@@ -184,13 +185,16 @@ exports.questions = async (req, res, next) => {
 // POST /api/admin/questions
 exports.createQuestion = async (req, res, next) => {
   try {
-    const { round, order, type, questionText, imageUrl, options, correctAnswer, marks, explanation } = req.body;
+    const {
+  set, order, type, questionText, imageUrl,
+  options, correctAnswer, marks, explanation,
+} = req.body;
 
-    const roundNumber = Number(round);
+const setName = String(set || 'A').toUpperCase();
 
-    if (![1, 2].includes(roundNumber)) {
-      return res.status(400).json({ message: 'Round must be 1 or 2' });
-    }
+if (!['A', 'B', 'C', 'D'].includes(setName)) {
+  return res.status(400).json({ message: 'Set must be A, B, C or D' });
+}
 
     if (!questionText?.trim()) {
       return res.status(400).json({ message: 'Question text is required' });
@@ -217,16 +221,17 @@ exports.createQuestion = async (req, res, next) => {
     }
 
     // Once a round has started, its questions are locked.
-    const roundStarted = await Attempt.exists({ round: roundNumber });
+    const setStarted = await Attempt.exists({ round: 1, set: setName });
 
-    if (roundStarted) {
-      return res.status(409).json({
-        message: `Round ${roundNumber} questions are locked because the round has already started.`,
-      });
-    }
+if (setStarted) {
+  return res.status(409).json({
+    message: `Set ${setName} is locked because a team has started it.`,
+  });
+}
 
     const question = await Question.create({
-      round: roundNumber,
+      round: 1,
+set: setName,
       order: Number(order),
       type: type || 'mcq',
       questionText: questionText.trim(),
@@ -259,13 +264,16 @@ exports.updateQuestion = async (req, res, next) => {
       return res.status(404).json({ message: 'Question not found' });
     }
 
-    const roundStarted = await Attempt.exists({ round: question.round });
+    const setStarted = await Attempt.exists({
+  round: 1,
+  set: question.set || 'A',
+});
 
-    if (roundStarted) {
-      return res.status(409).json({
-        message: `Round ${question.round} questions are locked because the round has already started.`,
-      });
-    }
+if (setStarted) {
+  return res.status(409).json({
+    message: `Set ${question.set || 'A'} is locked because a team has started it.`,
+  });
+}
 
     const {
       order,
@@ -335,17 +343,61 @@ exports.deleteQuestion = async (req, res, next) => {
       return res.status(404).json({ message: 'Question not found' });
     }
 
-    const roundStarted = await Attempt.exists({ round: question.round });
+    const setStarted = await Attempt.exists({
+  round: 1,
+  set: question.set || 'A',
+});
 
-    if (roundStarted) {
-      return res.status(409).json({
-        message: `Round ${question.round} questions are locked because the round has already started.`,
-      });
-    }
+if (setStarted) {
+  return res.status(409).json({
+    message: `Set ${question.set || 'A'} is locked because a team has started it.`,
+  });
+}
 
     await Question.deleteOne({ _id: question._id });
 
     return res.json({ deleted: true });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// GET /api/admin/active-set
+exports.getActiveSet = async (req, res, next) => {
+  try {
+    const config = await QuizConfig.findOneAndUpdate(
+      { key: 'quiz' },
+      { $setOnInsert: { activeSet: 'A' } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ activeSet: config.activeSet || 'A' });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// PUT /api/admin/active-set  { activeSet: "A" | "B" | "C" | "D" }
+exports.setActiveSet = async (req, res, next) => {
+  try {
+    const activeSet = String(req.body.activeSet || '').toUpperCase();
+
+    if (!['A', 'B', 'C', 'D'].includes(activeSet)) {
+      return res.status(400).json({
+        message: 'Active set must be A, B, C or D',
+      });
+    }
+
+    const config = await QuizConfig.findOneAndUpdate(
+      { key: 'quiz' },
+      { $set: { activeSet } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({
+      message: `Active question set changed to ${config.activeSet}`,
+      activeSet: config.activeSet,
+    });
   } catch (err) {
     return next(err);
   }

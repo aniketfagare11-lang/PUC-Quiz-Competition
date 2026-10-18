@@ -14,6 +14,12 @@ const attemptSchema = new mongoose.Schema(
     team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
     teamNumber: { type: Number, required: true },
     round: { type: Number, required: true, default: 1 },
+    set: {
+  type: String,
+  enum: ['A', 'B', 'C', 'D'],
+  required: true,
+  default: 'A',
+},
     participants: {
       type: [{ type: String, trim: true }],
       default: undefined,

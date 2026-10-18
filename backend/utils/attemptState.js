@@ -41,7 +41,10 @@ async function autoSubmitIfExpired(attempt) {
  * Build the team-facing attempt payload. NEVER includes score or correct answers.
  */
 async function buildAttemptState(attempt) {
-  const questions = await Question.find({ round: attempt.round }).sort({ order: 1 });
+  const questions = await Question.find({
+  round: attempt.round,
+  set: attempt.set || 'A',
+}).sort({ order: 1 });
   const answers = {};
   for (const a of attempt.answers) answers[String(a.question)] = a.selectedOption || '';
 
@@ -49,6 +52,7 @@ async function buildAttemptState(attempt) {
     attempt: {
       _id: attempt._id,
       teamNumber: attempt.teamNumber,
+      set: attempt.set || 'A',
       round: attempt.round,
       status: attempt.status,
       submissionType: attempt.submissionType,

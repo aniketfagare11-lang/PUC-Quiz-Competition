@@ -1,5 +1,6 @@
 const Attempt = require('../models/Attempt');
 const Question = require('../models/Question');
+const QuizConfig = require('../models/QuizConfig');
 const Team = require('../models/Team');
 const { autoSubmitIfExpired, buildAttemptState, remainingSeconds } = require('../utils/attemptState');
 
@@ -8,71 +9,100 @@ function roundTimeLimit(round) {
   return fromEnv > 0 ? fromEnv : 1200;
 }
 
-// POST /api/attempts/start  { round }  -> create or resume the team's attempt
+// POST /api/attempts/start -> create or resume the team's single quiz attempt
 exports.start = async (req, res, next) => {
   try {
     const teamNumber = req.team.teamNumber;
-    const round = Number(req.body.round) || 1;
-    if (![1, 2].includes(round)) {
-      return res.status(400).json({ message: 'Invalid round' });
-    }
+    const round = 1;
 
     const team = await Team.findOne({ teamNumber });
-    if (!team) return res.status(404).json({ message: 'Team not registered' });
+    if (!team) {
+      return res.status(404).json({ message: 'Team not registered' });
+    }
 
-    const participants = Array.isArray(req.team.participants) ? req.team.participants : [];
-    if (participants.length !== 2 || participants.some((name) => !String(name || '').trim())) {
-      return res.status(403).json({ message: 'Participant verification is required' });
+    const participants = Array.isArray(req.team.participants)
+      ? req.team.participants
+      : [];
+
+    if (
+      participants.length !== 2 ||
+      participants.some((name) => !String(name || '').trim())
+    ) {
+      return res.status(403).json({
+        message: 'Participant verification is required',
+      });
     }
 
     let attempt = await Attempt.findOne({ team: team._id, round });
 
-    if (attempt && attempt.status === 'submitted') {
-      return res.status(409).json({ message: 'This round has already been submitted' });
+    const normalize = (names) =>
+      names
+        .map((name) =>
+          String(name).trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+        )
+        .sort();
+
+    if (attempt?.status === 'submitted') {
+      return res.status(409).json({
+        message: 'This quiz has already been submitted',
+      });
     }
 
-    if (attempt?.participants?.length) {
-      const normalized = (names) => names.map((name) => String(name).trim().replace(/\s+/g, ' ').toLocaleLowerCase()).sort();
-      if (JSON.stringify(normalized(attempt.participants)) !== JSON.stringify(normalized(participants))) {
-        return res.status(403).json({ message: 'Participant names do not match this attempt' });
-      }
-    }
-
-    if (round === 2) {
-      const round1 = await Attempt.findOne({ team: team._id, round: 1 });
-      const normalized = (names) => names.map((name) => String(name).trim().replace(/\s+/g, ' ').toLocaleLowerCase()).sort();
-      if (!round1 || !round1.participants?.length) {
-        return res.status(403).json({ message: 'Team has not started Round 1 yet.' });
-      }
-      if (JSON.stringify(normalized(round1.participants)) !== JSON.stringify(normalized(participants))) {
-        return res.status(403).json({ message: 'Participant names do not match the Round 1 team.' });
-      }
+    if (
+      attempt?.participants?.length &&
+      JSON.stringify(normalize(attempt.participants)) !==
+        JSON.stringify(normalize(participants))
+    ) {
+      return res.status(403).json({
+        message: 'Participant names do not match this attempt',
+      });
     }
 
     if (!attempt) {
-      const questions = await Question.find({ round }).sort({ order: 1 });
-      if (!questions.length) return res.status(400).json({ message: 'No questions available for this round' });
+      const config = await QuizConfig.findOneAndUpdate(
+        { key: 'quiz' },
+        { $setOnInsert: { activeSet: 'A' } },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
+
+      const activeSet = config.activeSet || 'A';
+
+      const questions = await Question.find({
+        round: 1,
+        set: activeSet,
+      }).sort({ order: 1 });
+
+      if (!questions.length) {
+        return res.status(400).json({
+          message: `No questions available in Set ${activeSet}`,
+        });
+      }
+
       try {
         attempt = await Attempt.create({
           team: team._id,
           teamNumber,
-          round,
+          round: 1,
+          set: activeSet,
           participants,
-          timeLimitSeconds: roundTimeLimit(round),
-          answers: questions.map((q) => ({ question: q._id, selectedOption: '' })),
+          timeLimitSeconds: roundTimeLimit(1),
+          answers: questions.map((q) => ({
+            question: q._id,
+            selectedOption: '',
+          })),
         });
       } catch (err) {
-        // React StrictMode can mount Quiz twice in development. Both mounts may
-        // observe no attempt and race to create it; the unique index picks one.
-        // The losing request must resume that attempt, never look submitted.
         if (err.code !== 11000) throw err;
-        attempt = await Attempt.findOne({ team: team._id, round });
+
+        attempt = await Attempt.findOne({ team: team._id, round: 1 });
         if (!attempt) throw err;
       }
     }
 
     if (attempt.status === 'submitted') {
-      return res.status(409).json({ message: 'This round has already been submitted' });
+      return res.status(409).json({
+        message: 'This quiz has already been submitted',
+      });
     }
 
     await autoSubmitIfExpired(attempt);
