@@ -287,11 +287,11 @@ const deleteQuestion = async (question) => {
   if (loading) return <Spinner full label="Loading dashboard…" />;
   const overview = data.overview || {};
   return <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-    <header className="card flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div className="flex items-center gap-4"><Logo subtitle={false} /><div><div className="text-xs uppercase tracking-widest text-slate-400">Admin Dashboard</div><div className="text-sm font-semibold text-white">Signed in as {admin?.username}</div></div></div><div className="flex gap-2"><button onClick={load} className="btn-ghost text-sm">Refresh</button><button onClick={() => { logoutAdmin(); navigate('/admin'); }} className="btn-ghost text-sm">Sign out</button></div></header>
-    {error && <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
+    <header className="card flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div className="flex items-center gap-4"><Logo subtitle={false} /><div><div className="text-xs uppercase tracking-widest text-[#A3A3A3]">Admin Dashboard</div><div className="text-sm font-semibold text-white">Signed in as {admin?.username}</div></div></div><div className="flex gap-2"><button onClick={load} className="btn-ghost text-sm">Refresh</button><button onClick={() => { logoutAdmin(); navigate('/admin'); }} className="btn-ghost text-sm">Sign out</button></div></header>
+    {error && <div className="mt-4 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3 text-sm text-rose-200">{error}</div>}
     <nav className="mt-4 flex flex-wrap gap-2">{Tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? 'btn-primary text-sm' : 'btn-ghost text-sm'}>{item}</button>)}</nav>
     {tab === 'Overview' && <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label="Teams" value={overview.registered || 0} /><Stat label="R1 submitted" value={overview.submitted || 0} /><Stat label="R2 submitted" value={overview.round2Submitted || 0} /><Stat label="R2 live" value={overview.round2InProgress || 0} /></section>}
-    {tab === 'Teams' && <section className="card mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase text-slate-500"><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Round 1</th><th className="p-4">Round 2</th><th className="p-4">Actions</th></tr></thead><tbody>{data.teams.map((team) => <tr key={team.teamNumber} className="border-t border-slate-800"><td className="p-4 font-mono font-bold">{String(team.teamNumber).padStart(2, '0')}</td><td className="p-4">{team.participants.join(' · ') || '—'}</td><td className="p-4"><Status attempt={team.round1} /></td><td className="p-4"><Status attempt={team.round2} /></td><td className="p-4 space-x-2">{[team.round1, team.round2].filter(Boolean).map((attempt) => <span key={attempt.attemptId}>{attempt.status === 'in-progress' && <button onClick={() => forceSubmit(attempt)} className="btn-ghost px-2 py-1 text-xs">Force submit</button>}<button onClick={() => reset(team.teamNumber, attempt.round || (attempt === team.round1 ? 1 : 2))} className="btn-danger px-2 py-1 text-xs">Reset</button></span>)}</td></tr>)}</tbody></table></section>}
+    {tab === 'Teams' && <section className="card mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Round 1</th><th className="p-4">Round 2</th><th className="p-4">Actions</th></tr></thead><tbody>{data.teams.map((team) => <tr key={team.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-mono font-bold text-white">{String(team.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">{team.participants.join(' · ') || '—'}</td><td className="p-4"><Status attempt={team.round1} /></td><td className="p-4"><Status attempt={team.round2} /></td><td className="p-4 space-x-2">{[team.round1, team.round2].filter(Boolean).map((attempt) => <span key={attempt.attemptId}>{attempt.status === 'in-progress' && <button onClick={() => forceSubmit(attempt)} className="btn-ghost px-2 py-1 text-xs">Force submit</button>}<button onClick={() => reset(team.teamNumber, attempt.round || (attempt === team.round1 ? 1 : 2))} className="btn-danger px-2 py-1 text-xs">Reset</button></span>)}</td></tr>)}</tbody></table></section>}
     {tab === 'Questions' && (
   <section className="card mt-4 p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -761,50 +761,50 @@ const deleteQuestion = async (question) => {
       Download CSV
     </button>
   </div>
-  <h2 className="p-5 font-semibold text-white">Combined Results</h2><table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase text-slate-500"><th className="p-4">Rank</th><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Round 1</th>
+  <h2 className="p-5 font-semibold text-white">Combined Results</h2><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Rank</th><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Round 1</th>
 <th className="p-4">R1 Time</th>
 <th className="p-4">Round 2</th>
 <th className="p-4">R2 Time</th>
 <th className="p-4">Total</th>
-<th className="p-4">Total Time</th></tr></thead><tbody>{data.combined.map((row) => <tr key={row.teamNumber} className="border-t border-slate-800"><td className="p-4">{row.rank}</td><td className="p-4 font-mono">{String(row.teamNumber).padStart(2, '0')}</td><td className="p-4">{row.participants.join(' · ') || '—'}</td><td className="p-4">{row.round1Score ?? '—'}</td>
+<th className="p-4">Total Time</th></tr></thead><tbody>{data.combined.map((row) => <tr key={row.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-bold text-white">{row.rank}</td><td className="p-4 font-mono text-white">{String(row.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">{row.participants.join(' · ') || '—'}</td><td className="p-4 font-mono text-white">{row.round1Score ?? '—'}</td>
 
-<td className="p-4 font-mono">
+<td className="p-4 font-mono text-[#A3A3A3]">
   {row.round1Time != null
     ? `${Math.floor(row.round1Time / 60)}m ${row.round1Time % 60}s`
     : '—'}
 </td>
 
-<td className="p-4">{row.round2Score ?? '—'}</td>
+<td className="p-4 font-mono text-white">{row.round2Score ?? '—'}</td>
 
-<td className="p-4 font-mono">
+<td className="p-4 font-mono text-[#A3A3A3]">
   {row.round2Time != null
     ? `${Math.floor(row.round2Time / 60)}m ${row.round2Time % 60}s`
     : '—'}
 </td>
 
-<td className="p-4 font-mono font-bold">{row.total}</td>
+<td className="p-4 font-mono font-bold text-[#FDBA74]">{row.total}</td>
 
-<td className="p-4 font-mono font-bold">
+<td className="p-4 font-mono font-bold text-white">
   {row.totalTime != null
     ? `${Math.floor(row.totalTime / 60)}m ${row.totalTime % 60}s`
     : '—'}
 </td></tr>)}</tbody></table></section>}
-    <div className="mt-5 text-sm text-slate-400"><Link to="/round1" className="hover:text-white">View participant site →</Link></div>
+    <div className="mt-5 text-sm text-[#A3A3A3]"><Link to="/round1" className="text-[#FDBA74] hover:underline">View participant site →</Link></div>
   </div>;
 }
-function Stat({ label, value }) { return <div className="card p-4"><div className="text-xs uppercase text-slate-400">{label}</div><div className="mt-1 font-mono text-3xl font-bold text-white">{value}</div></div>; }
-function Status({ attempt }) { return !attempt ? <span className="text-slate-500">Not started</span> : <span>{attempt.status === 'submitted' ? `Submitted · ${attempt.score}` : 'In progress'}</span>; }
-function Results({ rows, title }) { return <section className="card mt-4 overflow-x-auto"><h2 className="p-5 font-semibold text-white">{title}</h2><table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase text-slate-500"><th className="p-4">Rank</th><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Score</th>
+function Stat({ label, value }) { return <div className="card p-4 border-[#262626] bg-[#171717]"><div className="text-xs uppercase text-[#A3A3A3] font-semibold">{label}</div><div className="mt-1 font-mono text-3xl font-bold text-white">{value}</div></div>; }
+function Status({ attempt }) { return !attempt ? <span className="text-[#737373]">Not started</span> : <span className={attempt.status === 'submitted' ? 'text-[#FDBA74] font-medium' : 'text-white'}>{attempt.status === 'submitted' ? `Submitted · ${attempt.score}` : 'In progress'}</span>; }
+function Results({ rows, title }) { return <section className="card mt-4 overflow-x-auto"><h2 className="p-5 font-semibold text-white">{title}</h2><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Rank</th><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Score</th>
 <th className="p-4">Time Taken</th>
 <th className="p-4">Status</th>
-<th className="p-4">Time Taken</th></tr></thead><tbody>{rows.map((row) => <tr key={row.teamNumber} className="border-t border-slate-800"><td className="p-4">{row.rank}</td><td className="p-4 font-mono">{String(row.teamNumber).padStart(2, '0')}</td><td className="p-4">{row.participants.join(' · ')}</td><td className="p-4 font-mono">{row.score}</td>
-<td className="p-4 font-mono">
+<th className="p-4">Time Taken</th></tr></thead><tbody>{rows.map((row) => <tr key={row.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-bold text-white">{row.rank}</td><td className="p-4 font-mono text-white">{String(row.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">{row.participants.join(' · ')}</td><td className="p-4 font-mono font-bold text-[#FDBA74]">{row.score}</td>
+<td className="p-4 font-mono text-[#A3A3A3]">
   {row.timeTakenSeconds != null
     ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s`
     : '—'}
 </td>
-<td className="p-4">{row.submissionType || 'submitted'}</td>
-<td className="p-4 font-mono">
+<td className="p-4 text-white">{row.submissionType || 'submitted'}</td>
+<td className="p-4 font-mono text-[#A3A3A3]">
   {row.timeTakenSeconds != null
     ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s`
     : '—'}

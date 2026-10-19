@@ -3,24 +3,35 @@ export default function QuestionCard({ question, total, selected, onSelect, lock
 
   return (
     <div className="card animate-fade-in p-6 sm:p-8">
-      <div className="mb-5 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300/80">
-          Question {question.order} <span className="text-slate-500">/ {total}</span>
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FDBA74]">
+          Question {question.order} <span className="text-[#A3A3A3]">/ {total}</span>
         </span>
-        <span className="chip">{question.marks} mark{question.marks > 1 ? 's' : ''}</span>
+        <span className="chip">
+          {question.marks} mark{question.marks > 1 ? 's' : ''}
+        </span>
       </div>
 
-      <h2 className="text-xl font-semibold leading-snug text-slate-50 sm:text-2xl">{question.questionText}</h2>
+      {/* Large and centered question text */}
+      <div className="my-6 flex justify-center">
+        <h2 className="max-w-3xl text-center text-xl font-bold leading-relaxed text-white sm:text-2xl md:text-3xl">
+          {question.questionText}
+        </h2>
+      </div>
 
+      {/* Image centered (never beside question) */}
       {question.imageUrl && (
-        <img
-          src={`${import.meta.env.VITE_API_URL}${question.imageUrl}`}
-          alt="Question visual"
-          className="mt-5 max-h-80 w-full rounded-xl border border-slate-800 bg-slate-950 object-contain"
-        />
+        <div className="my-6 flex justify-center">
+          <img
+            src={`${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}${question.imageUrl}`}
+            alt="Question visual"
+            className="max-h-72 w-auto max-w-full rounded-lg border border-[#262626] bg-[#0A0A0A] object-contain p-2"
+          />
+        </div>
       )}
 
-      <div className="mt-6 grid gap-3">
+      {/* Four answer options in 2x2 grid */}
+      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {question.options.map((o) => {
           const active = selected === o.key;
           return (
@@ -29,19 +40,25 @@ export default function QuestionCard({ question, total, selected, onSelect, lock
               type="button"
               disabled={locked}
               onClick={() => onSelect(o.key)}
-              className={`group flex items-center gap-4 rounded-xl border px-4 py-3.5 text-left transition
-                ${active
-                  ? 'border-indigo-400 bg-indigo-500/15 text-white shadow-lg shadow-indigo-950/30'
-                  : 'border-slate-700 bg-slate-950/40 text-slate-200 hover:border-slate-500 hover:bg-slate-800/50'}
+              className={`group flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-150
+                ${
+                  active
+                    ? 'border-[#FDBA74] bg-[#171717] ring-1 ring-[#FDBA74] text-white shadow-sm'
+                    : 'border-[#262626] bg-[#171717] text-[#A3A3A3] hover:border-[#383838] hover:text-white hover:bg-[#1C1C1C]'
+                }
                 ${locked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
             >
               <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition
-                  ${active ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-300 group-hover:bg-slate-700'}`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition-colors
+                  ${
+                    active
+                      ? 'bg-[#FDBA74] text-[#0A0A0A]'
+                      : 'bg-[#262626] text-[#A3A3A3] group-hover:bg-[#333333] group-hover:text-white'
+                  }`}
               >
                 {o.key}
               </span>
-              <span className="font-medium">{o.text}</span>
+              <span className="text-sm font-medium sm:text-base">{o.text}</span>
             </button>
           );
         })}

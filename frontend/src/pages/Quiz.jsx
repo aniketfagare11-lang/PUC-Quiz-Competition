@@ -316,10 +316,10 @@ export default function Quiz({ round = 1 }) {
   if (fatalError) {
     return (
       <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-4 text-center">
-        <div className="card w-full p-8">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/15 text-rose-400">!</div>
+        <div className="card w-full p-8 border-[#262626] bg-[#171717]">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-950/40 text-rose-400 border border-rose-800/40">!</div>
           <h1 className="text-2xl font-bold text-white">Something went wrong</h1>
-          <p className="mt-2 text-slate-400">{fatalError}</p>
+          <p className="mt-2 text-[#A3A3A3]">{fatalError}</p>
           <button onClick={() => window.location.reload()} className="btn-primary mt-6">Try again</button>
         </div>
       </div>
@@ -344,39 +344,45 @@ export default function Quiz({ round = 1 }) {
       <header className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-4">
           <Logo subtitle={false} />
-          <div className="hidden h-8 w-px bg-slate-800 sm:block" />
+          <div className="hidden h-8 w-px bg-[#262626] sm:block" />
           <div className="hidden sm:block">
             <TeamBadge team={team} />
           </div>
+          <span className="hidden sm:inline-block rounded-md border border-[#262626] bg-[#0A0A0A] px-2.5 py-1 text-xs font-semibold text-[#FDBA74]">
+            Round {round}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <Timer remainingMs={remainingMs} />
-          <button onClick={handleSubmit} disabled={submitting} className="btn-primary px-4 py-2.5 text-sm">
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary px-4 py-2 text-sm">
             {submitting ? 'Submitting…' : 'Submit'}
           </button>
         </div>
       </header>
 
       {/* Mobile team row */}
-      <div className="mt-3 sm:hidden">
+      <div className="mt-3 flex items-center justify-between sm:hidden">
         <TeamBadge team={team} />
+        <span className="rounded-md border border-[#262626] bg-[#171717] px-2.5 py-1 text-xs font-semibold text-[#FDBA74]">
+          Round {round}
+        </span>
       </div>
 
       {/* Progress */}
       <div className="mt-4 flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#171717] border border-[#262626]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all"
+            className="h-full rounded-full bg-[#FDBA74] transition-all duration-300"
             style={{ width: `${(answeredCount / questions.length) * 100}%` }}
           />
         </div>
-        <span className="text-xs font-medium text-slate-400">
+        <span className="text-xs font-medium text-[#A3A3A3]">
           {answeredCount}/{questions.length} answered
         </span>
       </div>
 
       {violationWarning && (
-        <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+        <div className="mt-3 rounded-xl border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-200">
           <div className="font-semibold">Warning</div>
           <div className="mt-1">{violationWarning}</div>
         </div>
@@ -397,7 +403,7 @@ export default function Quiz({ round = 1 }) {
           <div className="mt-3 flex items-center justify-between">
             <SaveIndicator state={saveState} />
             {answers[q._id] ? (
-              <button onClick={clearResponse} className="btn-ghost px-3 py-2 text-xs">
+              <button onClick={clearResponse} className="btn-ghost px-3 py-1.5 text-xs">
                 Clear response
               </button>
             ) : (
@@ -438,15 +444,15 @@ export default function Quiz({ round = 1 }) {
             onJump={(order) => setCurrent(order - 1)}
             locked={submitting}
           />
-          <div className="card p-4 text-xs leading-relaxed text-slate-400">
-            <span className="font-semibold text-slate-300">Auto-submit:</span> the round closes by
+          <div className="card p-4 text-xs leading-relaxed text-[#A3A3A3]">
+            <span className="font-semibold text-white">Auto-submit:</span> the round closes by
             itself when the timer reaches zero. Your saved answers are always safe if you refresh.
           </div>
         </aside>
       </div>
 
       {submitting && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0A0A0A]/80 backdrop-blur-sm">
           <Spinner label="Submitting your round…" />
         </div>
       )}
@@ -456,10 +462,10 @@ export default function Quiz({ round = 1 }) {
 
 function SaveIndicator({ state }) {
   if (state === 'saving')
-    return <span className="text-xs text-slate-400">Saving…</span>;
+    return <span className="text-xs text-[#A3A3A3]">Saving…</span>;
   if (state === 'saved')
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#FDBA74]">
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 6L9 17l-5-5" />
         </svg>

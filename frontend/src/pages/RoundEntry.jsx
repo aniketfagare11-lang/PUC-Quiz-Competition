@@ -56,19 +56,19 @@ export default function RoundEntry({ round }) {
     <PageShell>
       <div className="mx-auto max-w-lg">
         <div className="mb-7 text-center">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">AI Quiz Time</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FDBA74]">AI Quiz Time</div>
           <h1 className="mt-2 text-3xl font-extrabold text-white">Round {round}</h1>
-          <p className="mt-2 text-slate-400">
+          <p className="mt-2 text-[#A3A3A3]">
             {round === 1 ? 'Select your predefined team and enter both participant names.' : 'Verify the same participant names used in Round 1.'}
           </p>
         </div>
         <form onSubmit={submit} className="card grid gap-5 p-7">
-          {error && <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
+          {error && <div className="rounded-xl border border-rose-900/40 bg-rose-950/20 p-3 text-sm text-rose-200">{error}</div>}
           <div>
             <label className="label">Team number</label>
             <select className="input" value={teamNumber} onChange={(e) => setTeamNumber(e.target.value)} required>
-              <option value="">Select your team</option>
-              {teams.map((team) => <option key={team.teamNumber} value={team.teamNumber}>Team {String(team.teamNumber).padStart(2, '0')}</option>)}
+              <option value="" className="bg-[#171717] text-[#A3A3A3]">Select your team</option>
+              {teams.map((team) => <option key={team.teamNumber} value={team.teamNumber} className="bg-[#171717] text-white">Team {String(team.teamNumber).padStart(2, '0')}</option>)}
             </select>
           </div>
           <div>

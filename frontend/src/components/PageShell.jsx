@@ -17,8 +17,8 @@ export default function PageShell({ children, footer = true }) {
       <main className="flex-1 py-8 sm:py-12">{children}</main>
 
       {footer && (
-        <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-          AI Quiz Time · College Tech Competition · Phase 1 Demo
+        <footer className="border-t border-[#262626] py-6 text-center text-xs text-[#A3A3A3]">
+          PUC Quiz Competition · Phase 1
         </footer>
       )}
     </div>
