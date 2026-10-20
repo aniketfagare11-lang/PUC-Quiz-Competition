@@ -17,7 +17,7 @@ export default function Done() {
             logoutTeam();
             navigate('/');
           }}
-          className="text-sm text-slate-400 hover:text-slate-200"
+          className="text-sm text-[#A3A3A3] hover:text-white transition-colors"
         >
           Exit
         </button>
@@ -25,19 +25,19 @@ export default function Done() {
 
       <main className="flex flex-1 flex-col items-center justify-center py-10 text-center">
         <div className="card animate-fade-in w-full p-8 sm:p-10">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#FDBA74]/30 bg-[#FDBA74]/10 text-[#FDBA74]">
             <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
 
           <h1 className="mt-5 text-3xl font-extrabold text-white">Round {round} Submitted!</h1>
-          <p className="mt-2 text-slate-300">
+          <p className="mt-2 text-[#A3A3A3]">
             Nicely done{team ? `, Team ${team.teamNumber}` : ''}. Your answers are locked in.
           </p>
 
-          <div className="mt-6 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 text-sm text-indigo-100">
-            <span className="font-semibold">Scores stay sealed.</span> Your result will be revealed at
+          <div className="mt-6 rounded-xl border border-[#262626] bg-[#0A0A0A] p-4 text-sm text-[#A3A3A3]">
+            <span className="font-semibold text-white">Scores stay sealed.</span> Your result will be revealed at
             the final leaderboard announcement — no peeking!
           </div>
 

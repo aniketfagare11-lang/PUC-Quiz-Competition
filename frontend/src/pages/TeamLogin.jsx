@@ -26,7 +26,7 @@ export default function TeamLogin() {
       <PageShell>
         <div className="mx-auto max-w-md text-center">
           <h1 className="text-2xl font-bold text-white">No team selected</h1>
-          <p className="mt-2 text-slate-400">Please pick your team number first.</p>
+          <p className="mt-2 text-[#A3A3A3]">Please pick your team number first.</p>
           <Link to="/team" className="btn-primary mt-6">Choose a team</Link>
         </div>
       </PageShell>
@@ -50,23 +50,23 @@ export default function TeamLogin() {
   return (
     <PageShell>
       <div className="mx-auto max-w-lg">
-        <Link to="/team" className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200">
+        <Link to="/team" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#A3A3A3] hover:text-white transition-colors">
           ← Back to teams
         </Link>
 
         <div className="card p-7">
           <div className="mb-6 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-indigo-500/40 bg-indigo-500/10 font-mono text-2xl font-bold text-indigo-300">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-[#FDBA74]/30 bg-[#FDBA74]/10 font-mono text-2xl font-bold text-[#FDBA74]">
               {String(teamNumber).padStart(2, '0')}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Team {teamNumber} — Continue</h1>
-              <p className="text-sm text-slate-400">Verify your member names to resume.</p>
+              <p className="text-sm text-[#A3A3A3]">Verify your member names to resume.</p>
             </div>
           </div>
 
           {error && (
-            <div className="mb-5 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+            <div className="mb-5 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3 text-sm text-rose-200">
               {error}
             </div>
           )}
@@ -101,7 +101,7 @@ export default function TeamLogin() {
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-slate-500">
+          <p className="mt-4 text-center text-xs text-[#A3A3A3]">
             Member names must match your registration exactly.
           </p>
         </div>

@@ -1,73 +1,61 @@
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 
-const FEATURES = [
-  { title: 'Round 1 — 30 MCQs', desc: 'AI tools & trending tech. One question at a time, full navigation.' },
-  { title: 'Live countdown', desc: 'A single round timer with auto-submit when it hits zero.' },
-  { title: 'Hidden scoring', desc: 'Answers are scored on the server. Scores stay sealed until the finale.' },
+const STATS = [
+  { number: '50', label: 'MCQs', delay: '200ms' },
+  { number: '50', label: 'MINS', delay: '320ms' },
+  { number: '1', label: 'MARK EACH', delay: '440ms' },
 ];
 
 export default function Home() {
   return (
     <PageShell>
-      <section className="grid items-center gap-10 lg:grid-cols-2">
-        <div className="animate-fade-in">
-          <span className="chip mb-5 border-indigo-500/40 bg-indigo-500/10 text-indigo-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Registrations open
-          </span>
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
-            The <span className="bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">AI Quiz</span>
-            <br />Time
-          </h1>
-          <p className="mt-5 max-w-md text-lg text-slate-300">
-            20 teams. One stage. A head-to-head battle across AI tools, cloud, security and the
-            technology shaping tomorrow.
-          </p>
+      <section className="relative flex flex-1 flex-col items-center justify-center text-center min-h-[calc(100vh-14rem)] py-6 sm:py-10 md:py-12 overflow-hidden">
+        {/* Subtle orange ambient glow */}
+        <div
+          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] max-w-[480px] h-[260px] bg-[#FDBA74]/[0.045] rounded-full blur-[80px] -z-10"
+          aria-hidden="true"
+        />
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/team" className="btn-primary text-base">
-              Enter as a Team
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </Link>
-          </div>
+        {/* 1 & 2: Main Hero Heading */}
+        <h1 className="animate-hero-reveal max-w-3xl text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
+          <span className="block text-[#FDBA74]">Avishkar 5.0</span>
+          <span className="block text-white mt-1.5 sm:mt-2.5">Quiz Competition</span>
+        </h1>
 
-          <dl className="mt-10 grid max-w-md grid-cols-3 gap-4">
-            {[
-              ['20', 'Teams'],
-              ['30', 'MCQs'],
-              ['1', 'Mark each'],
-            ].map(([n, l]) => (
-              <div key={l} className="card px-4 py-3 text-center">
-                <dt className="font-mono text-2xl font-bold text-white">{n}</dt>
-                <dd className="text-xs uppercase tracking-wider text-slate-400">{l}</dd>
-              </div>
-            ))}
-          </dl>
+        {/* 3: Start Quiz Button (Above stats) */}
+        <div className="animate-button-reveal mt-8 sm:mt-10 flex justify-center">
+          <Link
+            to="/team"
+            className="group inline-flex items-center justify-center gap-2 rounded-xl px-8 py-3.5 text-base sm:text-lg font-bold text-[#0A0A0A] bg-[#FDBA74] hover:bg-[#FED7AA] active:bg-[#FB923C] shadow-md shadow-[#FDBA74]/15 hover:shadow-[0_0_28px_rgba(253,186,116,0.35)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDBA74] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+          >
+            <span>Start Quiz</span>
+            <span
+              className="text-xl leading-none transition-transform duration-200 group-hover:translate-x-1"
+              aria-hidden="true"
+            >
+              →
+            </span>
+          </Link>
         </div>
 
-        <div className="grid gap-4">
-          {FEATURES.map((f, i) => (
-            <div key={f.title} className="card animate-fade-in p-5" style={{ animationDelay: `${i * 70}ms` }}>
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500/20 to-fuchsia-500/20 font-mono font-bold text-indigo-300">
-                  {i + 1}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">{f.title}</h3>
-                  <p className="mt-0.5 text-sm text-slate-400">{f.desc}</p>
-                </div>
-              </div>
+        {/* 4: Three Statistics Cards */}
+        <dl className="mt-10 sm:mt-12 grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-5 w-full max-w-xs sm:max-w-md mx-auto">
+          {STATS.map((s) => (
+            <div
+              key={s.label}
+              className="animate-card-reveal rounded-xl border border-[#333333] bg-[#171717] px-3 sm:px-4 py-3 sm:py-4 text-center shadow-sm"
+              style={{ animationDelay: s.delay }}
+            >
+              <dt className="font-mono text-xl sm:text-3xl font-extrabold text-[#FDBA74] tracking-tight">
+                {s.number}
+              </dt>
+              <dd className="mt-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-white">
+                {s.label}
+              </dd>
             </div>
           ))}
-
-          <div className="card border-indigo-500/30 bg-indigo-500/5 p-5 text-sm text-indigo-100">
-            <span className="font-semibold">Tip:</span> Pick your team number at the check-in desk,
-            enter both members, then hit <span className="font-semibold">Start Round 1</span> when the
-            proctor says go.
-          </div>
-        </div>
+        </dl>
       </section>
     </PageShell>
   );

@@ -7,6 +7,7 @@ import TeamBadge from '../components/TeamBadge';
 import Timer from '../components/Timer';
 import QuestionCard from '../components/QuestionCard';
 import QuestionPalette from '../components/QuestionPalette';
+import AutosaveStatus from '../components/AutosaveStatus';
 import Spinner from '../components/Spinner';
 
 const violationMessage = 'Warning: Tab switching/fullscreen exit detected. If this happens again, your quiz will be submitted automatically.';
@@ -24,6 +25,7 @@ export default function Quiz({ round = 1 }) {
   const [fatalError, setFatalError] = useState('');
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({}); // { questionId: 'A' | '' }
+  const [flagged, setFlagged] = useState({}); // { questionId: boolean }
   const [attemptId, setAttemptId] = useState(null);
   const [current, setCurrent] = useState(0); // index into questions
 
@@ -279,6 +281,10 @@ export default function Quiz({ round = 1 }) {
     if (answers[q._id]) selectOption('');
   };
 
+  const toggleFlag = (qId) => {
+    setFlagged((prev) => ({ ...prev, [qId]: !prev[qId] }));
+  };
+
   const handleSubmit = async () => {
     if (submitting || submittedRef.current) return;
     const answered = Object.values(answers).filter(Boolean).length;
@@ -311,15 +317,23 @@ export default function Quiz({ round = 1 }) {
     return map;
   }, [questions, answers]);
 
+  const flaggedByOrder = useMemo(() => {
+    const map = {};
+    questions.forEach((q) => {
+      if (flagged[q._id]) map[q.order] = true;
+    });
+    return map;
+  }, [questions, flagged]);
+
   const answeredCount = Object.values(answersByOrder).filter(Boolean).length;
 
   if (fatalError) {
     return (
       <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-4 text-center">
-        <div className="card w-full p-8">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/15 text-rose-400">!</div>
+        <div className="card w-full p-8 border-[#333333] bg-[#171717]">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-950/40 text-rose-400 border border-rose-800/40">!</div>
           <h1 className="text-2xl font-bold text-white">Something went wrong</h1>
-          <p className="mt-2 text-slate-400">{fatalError}</p>
+          <p className="mt-2 text-[#A3A3A3]">{fatalError}</p>
           <button onClick={() => window.location.reload()} className="btn-primary mt-6">Try again</button>
         </div>
       </div>
@@ -328,7 +342,7 @@ export default function Quiz({ round = 1 }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0A]">
         <Spinner label="Preparing your quiz…" />
       </div>
     );
@@ -340,88 +354,111 @@ export default function Quiz({ round = 1 }) {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-4 sm:px-6">
-      {/* Top bar */}
-      <header className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      {/* Top Header */}
+      <header className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5 shadow-sm">
         <div className="flex items-center gap-4">
           <Logo subtitle={false} />
-          <div className="hidden h-8 w-px bg-slate-800 sm:block" />
+          <div className="hidden h-8 w-px bg-[#333333] sm:block" />
           <div className="hidden sm:block">
             <TeamBadge team={team} />
           </div>
+          <span className="hidden sm:inline-block rounded-lg border border-[#333333] bg-[#0A0A0A] px-3 py-1 text-xs font-semibold text-[#FDBA74]">
+            Round {round}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <Timer remainingMs={remainingMs} />
-          <button onClick={handleSubmit} disabled={submitting} className="btn-primary px-4 py-2.5 text-sm">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="btn-primary px-5 py-2 text-sm shadow-md hover:shadow-lg transition-all"
+          >
             {submitting ? 'Submitting…' : 'Submit'}
           </button>
         </div>
       </header>
 
       {/* Mobile team row */}
-      <div className="mt-3 sm:hidden">
+      <div className="mt-3 flex items-center justify-between sm:hidden">
         <TeamBadge team={team} />
+        <span className="rounded-lg border border-[#333333] bg-[#171717] px-3 py-1 text-xs font-semibold text-[#FDBA74]">
+          Round {round}
+        </span>
       </div>
 
-      {/* Progress */}
+      {/* Overall Progress Bar */}
       <div className="mt-4 flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#171717] border border-[#333333]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all"
-            style={{ width: `${(answeredCount / questions.length) * 100}%` }}
+            className="h-full rounded-full bg-[#FDBA74] transition-all duration-300"
+            style={{ width: `${questions.length ? (answeredCount / questions.length) * 100 : 0}%` }}
           />
         </div>
-        <span className="text-xs font-medium text-slate-400">
+        <span className="text-xs font-medium text-[#A3A3A3] whitespace-nowrap">
           {answeredCount}/{questions.length} answered
         </span>
       </div>
 
+      {/* Anti-cheat violation banner */}
       {violationWarning && (
-        <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          <div className="font-semibold">Warning</div>
+        <div className="mt-3 rounded-xl border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-200">
+          <div className="font-semibold">Security Warning</div>
           <div className="mt-1">{violationWarning}</div>
         </div>
       )}
 
-      {/* Main grid */}
-      <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/* Main Grid: Left Question Area vs Right Sidebar */}
+      <div className="mt-4 grid flex-1 gap-5 lg:grid-cols-3">
+        {/* Left Column: Question Card + Navigation Buttons Directly Underneath */}
+        <div className="lg:col-span-2 flex flex-col">
+          {/* Main Question Card */}
           <QuestionCard
+            key={q._id}
             question={q}
             total={questions.length}
             selected={answers[q._id] || ''}
             onSelect={selectOption}
+            onClear={clearResponse}
+            isFlagged={!!flagged[q._id]}
+            onToggleFlag={toggleFlag}
             locked={submitting}
           />
 
-          {/* Save indicator + Clear */}
-          <div className="mt-3 flex items-center justify-between">
-            <SaveIndicator state={saveState} />
-            {answers[q._id] ? (
-              <button onClick={clearResponse} className="btn-ghost px-3 py-2 text-xs">
-                Clear response
-              </button>
-            ) : (
-              <span />
-            )}
-          </div>
-
-          {/* Navigation */}
+          {/* Previous and Next buttons directly underneath the answer options */}
           <div className="mt-4 flex items-center justify-between gap-3">
-            <button onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={isFirst} className="btn-ghost">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <button
+              type="button"
+              onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+              disabled={isFirst || submitting}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#333333] bg-[#171717] px-5 py-2.5 text-sm font-semibold text-[#A3A3A3] hover:border-[#4B4B4B] hover:text-white hover:bg-[#202020] active:scale-[0.98] transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M11 18l-6-6 6-6" />
               </svg>
-              Previous
+              <span>Previous</span>
             </button>
 
             {isLast ? (
-              <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
-                Review &amp; Submit
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#FDBA74] px-6 py-2.5 text-sm font-bold text-[#0A0A0A] hover:bg-[#FED7AA] active:bg-[#FB923C] active:scale-[0.98] transition-all duration-150 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span>Review &amp; Submit</span>
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
               </button>
             ) : (
-              <button onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))} className="btn-primary">
-                Next
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <button
+                type="button"
+                onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}
+                disabled={submitting}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#FDBA74] px-6 py-2.5 text-sm font-bold text-[#0A0A0A] hover:bg-[#FED7AA] active:bg-[#FB923C] active:scale-[0.98] transition-all duration-150 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span>Next</span>
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
               </button>
@@ -429,44 +466,43 @@ export default function Quiz({ round = 1 }) {
           </div>
         </div>
 
-        {/* Sidebar */}
-        <aside className="space-y-4">
+        {/* Right Sidebar: Question Palette + Real Autosave Status + Instructions */}
+        <aside className="space-y-4 lg:col-span-1">
           <QuestionPalette
             total={questions.length}
             answersByOrder={answersByOrder}
             currentOrder={q.order}
             onJump={(order) => setCurrent(order - 1)}
+            flaggedByOrder={flaggedByOrder}
             locked={submitting}
           />
-          <div className="card p-4 text-xs leading-relaxed text-slate-400">
-            <span className="font-semibold text-slate-300">Auto-submit:</span> the round closes by
-            itself when the timer reaches zero. Your saved answers are always safe if you refresh.
+
+          {/* Real Autosave Status Panel */}
+          <AutosaveStatus state={saveState} />
+
+          {/* Auto-submit information notice */}
+          <div className="card p-4 text-xs leading-relaxed text-[#A3A3A3] space-y-1.5">
+            <div className="flex items-center gap-1.5 font-semibold text-white">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[#FDBA74]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <span>Auto-submit Notice</span>
+            </div>
+            <p>
+              The round closes by itself when the countdown timer reaches zero. Your saved answers remain secure across browser refreshes.
+            </p>
           </div>
         </aside>
       </div>
 
+      {/* Submitting modal overlay */}
       {submitting && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0A0A0A]/85 backdrop-blur-sm">
           <Spinner label="Submitting your round…" />
         </div>
       )}
     </div>
   );
-}
-
-function SaveIndicator({ state }) {
-  if (state === 'saving')
-    return <span className="text-xs text-slate-400">Saving…</span>;
-  if (state === 'saved')
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-        Answer saved
-      </span>
-    );
-  if (state === 'error')
-    return <span className="text-xs text-rose-400">Save failed — retrying on next change</span>;
-  return null;
 }

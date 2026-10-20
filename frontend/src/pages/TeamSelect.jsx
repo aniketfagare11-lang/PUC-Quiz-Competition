@@ -34,13 +34,13 @@ export default function TeamSelect() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-extrabold text-white sm:text-4xl">Select Your Team</h1>
-          <p className="mt-2 text-slate-400">Choose your assigned team number to begin.</p>
+          <p className="mt-2 text-[#A3A3A3]">Choose your assigned team number to begin.</p>
         </div>
 
         {team && (
-          <div className="card mb-6 flex flex-col items-start justify-between gap-3 border-emerald-500/30 bg-emerald-500/5 p-4 sm:flex-row sm:items-center">
-            <div className="text-sm text-emerald-100">
-              You are already logged in as <span className="font-bold">Team {team.teamNumber}</span>.
+          <div className="card mb-6 flex flex-col items-start justify-between gap-3 border-[#FDBA74]/30 bg-[#FDBA74]/10 p-4 sm:flex-row sm:items-center">
+            <div className="text-sm text-white">
+              You are already logged in as <span className="font-bold text-[#FDBA74]">Team {team.teamNumber}</span>.
             </div>
             <button onClick={() => navigate('/briefing')} className="btn-primary text-sm">
               Go to Briefing →
@@ -48,7 +48,7 @@ export default function TeamSelect() {
           </div>
         )}
 
-        {error && <div className="card mb-6 border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>}
+        {error && <div className="card mb-6 border-rose-900/40 bg-rose-950/20 p-4 text-sm text-rose-200">{error}</div>}
 
         {loading ? (
           <Spinner full label="Loading teams…" />
@@ -64,18 +64,17 @@ export default function TeamSelect() {
                       ? navigate(`/login?team=${t.teamNumber}`)
                       : navigate(`/register?team=${t.teamNumber}`)
                   }
-                  disabled={false}
-                  className={`group relative flex flex-col items-center gap-1 rounded-2xl border p-5 transition
+                  className={`group relative flex flex-col items-center gap-1 rounded-xl border p-5 transition-all
                     ${isCurrent
-                      ? 'border-emerald-500/40 bg-emerald-500/10'
+                      ? 'border-[#FDBA74] bg-[#FDBA74]/10 ring-1 ring-[#FDBA74]'
                       : t.registered
-                      ? 'border-indigo-700/40 bg-indigo-900/20 hover:-translate-y-0.5 hover:border-indigo-500 hover:bg-indigo-900/40'
-                      : 'border-slate-700 bg-slate-900/60 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-slate-800/60'}`}
+                      ? 'border-[#383838] bg-[#171717] hover:border-[#FDBA74] hover:bg-[#1E1E1E]'
+                      : 'border-[#262626] bg-[#171717] hover:border-[#383838] hover:bg-[#1E1E1E]'}`}
                 >
                   <span className="font-mono text-3xl font-bold text-white">
                     {String(t.teamNumber).padStart(2, '0')}
                   </span>
-                  <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                  <span className="text-xs font-medium uppercase tracking-wider text-[#A3A3A3]">
                     {isCurrent ? 'Your team' : t.registered ? 'Login' : 'Register'}
                   </span>
                 </button>
@@ -84,7 +83,7 @@ export default function TeamSelect() {
           </div>
         )}
 
-        <p className="mt-6 text-center text-xs text-slate-500">
+        <p className="mt-6 text-center text-xs text-[#A3A3A3]">
           A team number can be registered only once. If yours is taken, check with the proctor.
         </p>
       </div>

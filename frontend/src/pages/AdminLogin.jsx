@@ -35,18 +35,18 @@ export default function AdminLogin() {
       <div className="mx-auto max-w-sm">
         <div className="card p-7">
           <div className="mb-6 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-fuchsia-500/20 text-indigo-300">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[#FDBA74]/30 bg-[#FDBA74]/10 text-[#FDBA74]">
               <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-white">Admin Login</h1>
-            <p className="text-sm text-slate-400">Proctor & organiser access only.</p>
+            <p className="text-sm text-[#A3A3A3]">Proctor & organiser access only.</p>
           </div>
 
           {error && (
-            <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+            <div className="mb-4 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3 text-sm text-rose-200">
               {error}
             </div>
           )}
@@ -65,8 +65,8 @@ export default function AdminLogin() {
             </button>
           </form>
         </div>
-        <div className="mt-4 text-center text-xs text-slate-500">
-          <Link to="/" className="hover:text-slate-300">← Back to home</Link>
+        <div className="mt-4 text-center text-xs text-[#A3A3A3]">
+          <Link to="/" className="hover:text-white transition-colors">← Back to home</Link>
         </div>
       </div>
     </PageShell>
