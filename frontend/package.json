@@ -1,7 +1,7 @@
 {
-  "name": "ai-quiz-time-frontend",
+  "name": "avishkar-5-quiz-frontend",
   "version": "1.0.0",
-  "description": "AI Quiz Competition Platform - Frontend (Phase 1)",
+  "description": "Avishkar 5.0 Quiz Competition frontend",
   "private": true,
   "type": "module",
   "scripts": {

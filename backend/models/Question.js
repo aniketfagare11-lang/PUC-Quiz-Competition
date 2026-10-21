@@ -29,6 +29,6 @@ const questionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-questionSchema.index({ round: 1, set: 1, order: 1 });
+questionSchema.index({ round: 1, set: 1, order: 1 }, { unique: true });
 
 module.exports = mongoose.model('Question', questionSchema);

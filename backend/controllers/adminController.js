@@ -4,73 +4,113 @@ const Question = require('../models/Question');
 const QuizConfig = require('../models/QuizConfig');
 const { scoreAttempt } = require('../utils/scoring');
 
-const TOTAL_TEAMS = Number(process.env.TOTAL_TEAMS) || 20;
-
 // GET /api/admin/overview
 exports.overview = async (req, res, next) => {
   try {
-    const [registered, submitted, inProgress, round2Submitted, round2InProgress] = await Promise.all([
+    const [registered, submitted, inProgress] = await Promise.all([
       Team.countDocuments(),
       Attempt.countDocuments({ round: 1, status: 'submitted' }),
       Attempt.countDocuments({ round: 1, status: 'in-progress' }),
-      Attempt.countDocuments({ round: 2, status: 'submitted' }),
-      Attempt.countDocuments({ round: 2, status: 'in-progress' }),
     ]);
-    return res.json({ totalTeams: TOTAL_TEAMS, registered, submitted, inProgress, round2Submitted, round2InProgress });
+    return res.json({ registered, submitted, inProgress });
   } catch (err) {
     return next(err);
   }
 };
 
-// GET /api/admin/teams -> all predefined teams with both attempts and locked names
+// GET /api/admin/teams -> registered teams, their quiz attempt, and locked names
+
 exports.teams = async (req, res, next) => {
   try {
-    const teams = await Team.find().sort({ teamNumber: 1 }).lean();
-    const attempts = await Attempt.find({ round: { $in: [1, 2] } }).lean();
-    const byTeam = new Map();
-    attempts.forEach((attempt) => byTeam.set(`${attempt.teamNumber}-${attempt.round}`, attempt));
+    const teams = await Team.find()
+      .sort({ teamNumber: 1 })
+      .lean();
 
-    const rows = teams.map((t) => {
-      const serialize = (a) => a && ({
-        attemptId: a._id, status: a.status, submissionType: a.submissionType,
-        startedAt: a.startedAt, submittedAt: a.submittedAt,
-        score: a.status === 'submitted' ? a.score : null, participants: a.participants || [],
-      });
-      const round1 = byTeam.get(`${t.teamNumber}-1`);
-      const round2 = byTeam.get(`${t.teamNumber}-2`);
+    const attempts = await Attempt.find({
+      round: { $in: [1, 2] },
+    }).lean();
+
+    const byTeam = new Map();
+
+    attempts.forEach((attempt) => {
+      byTeam.set(
+        `${attempt.teamNumber}-${attempt.round}`,
+        attempt
+      );
+    });
+
+    const rows = teams.map((team) => {
+      const serialize = (attempt) =>
+        attempt && {
+          attemptId: attempt._id,
+          set: attempt.set || null,
+          status: attempt.status,
+          submissionType: attempt.submissionType,
+          startedAt: attempt.startedAt,
+          submittedAt: attempt.submittedAt,
+          score:
+            attempt.status === 'submitted'
+              ? attempt.score
+              : null,
+          answers: (attempt.answers || []).map((answer) => ({
+            selectedOption: answer.selectedOption || '',
+          })),
+          totalQuestions: (attempt.answers || []).length,
+          participants: attempt.participants || [],
+        };
+
+      const round1 = byTeam.get(`${team.teamNumber}-1`);
+      const round2 = byTeam.get(`${team.teamNumber}-2`);
+
       return {
-        teamNumber: t.teamNumber,
-        participants: round1?.participants || [],
+        teamNumber: team.teamNumber,
+        collegeName: team.collegeName || '',
+        registeredAt: team.registeredAt,
+        participants: [
+          team.member1Name || '',
+          team.member2Name || '',
+        ],
         round1: serialize(round1),
         round2: serialize(round2),
+        quiz: serialize(round1),
       };
     });
+
+    console.log(
+  teams.slice(0, 3).map((team) => ({
+    teamNumber: team.teamNumber,
+    collegeName: team.collegeName,
+    member1Name: team.member1Name,
+    member2Name: team.member2Name,
+  }))
+);
+
     return res.json({ teams: rows });
   } catch (err) {
     return next(err);
   }
 };
 
-// GET /api/admin/rankings?round=1|2 -> submitted results for one round
+
+// GET /api/admin/rankings -> quiz results; the round filter remains accepted for legacy callers.
 exports.rankings = async (req, res, next) => {
   try {
-    const round = [1, 2].includes(Number(req.query.round))
-      ? Number(req.query.round)
-      : 1;
-
     const submitted = await Attempt.find({
-      round,
-      status: 'submitted'
+      round: 1,
     })
-      .sort({ score: -1, submittedAt: 1 })
+      .sort({ status: 1, score: -1, submittedAt: 1, startedAt: 1 })
       .lean();
 
     const rankings = submitted.map((a, i) => ({
       rank: i + 1,
       teamNumber: a.teamNumber,
+      set: a.set || null,
       participants: a.participants || [],
-      score: a.score,
+      score: a.status === 'submitted' ? a.score : null,
+      status: a.status,
       submissionType: a.submissionType,
+      answeredCount: (a.answers || []).filter((answer) => answer.selectedOption).length,
+      totalQuestions: (a.answers || []).length,
       submittedAt: a.submittedAt,
       startedAt: a.startedAt,
       timeTakenSeconds:
@@ -87,7 +127,7 @@ exports.rankings = async (req, res, next) => {
   }
 };
 
-// GET /api/admin/results/combined -> totals are derived, never persisted.
+// Legacy endpoint retained for older dashboard clients.
 exports.combinedResults = async (req, res, next) => {
   try {
     const teams = await Team.find().sort({ teamNumber: 1 }).lean();
@@ -153,15 +193,14 @@ exports.resetAttempt = async (req, res, next) => {
     const teamNumber = Number(req.params.teamNumber);
     const team = await Team.findOne({ teamNumber });
     if (!team) return res.status(404).json({ message: 'Team not found' });
-    const round = [1, 2].includes(Number(req.query.round)) ? Number(req.query.round) : 1;
-    const result = await Attempt.deleteOne({ team: team._id, round });
+    const result = await Attempt.deleteOne({ team: team._id, round: 1 });
     return res.json({ deleted: result.deletedCount });
   } catch (err) {
     return next(err);
   }
 };
 
-// GET /api/admin/questions?round=1|2
+// GET /api/admin/questions?set=A|B|C|D
 exports.questions = async (req, res, next) => {
   try {
     const setName = String(req.query.set || 'A').toUpperCase();

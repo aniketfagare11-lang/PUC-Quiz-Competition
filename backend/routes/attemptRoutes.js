@@ -5,8 +5,11 @@ const { verifyTeam } = require('../middleware/auth');
 // All attempt routes require a team token
 router.use(verifyTeam);
 
-// POST /api/attempts/start         { round }
+// POST /api/attempts/start         {}
 router.post('/start', attemptController.start);
+
+// GET  /api/attempts/info
+router.get('/info', attemptController.info);
 
 // GET  /api/attempts/:id
 router.get('/:id', attemptController.get);

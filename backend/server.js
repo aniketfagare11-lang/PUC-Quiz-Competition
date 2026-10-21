@@ -9,7 +9,11 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// CORS — allow the configured client origin(s); open in dev if not set
+if (process.env.NODE_ENV === 'production' && !process.env.CLIENT_URL) {
+  throw new Error('CLIENT_URL must be configured in production');
+}
+
+// CORS — allow configured client origin(s); remain open only in development.
 const allowedOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(',').map((s) => s.trim())
   : true;

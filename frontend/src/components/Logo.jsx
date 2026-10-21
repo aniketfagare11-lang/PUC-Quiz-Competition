@@ -14,7 +14,7 @@ export default function Logo({ size = 'md' }) {
       </div>
       <div className="leading-tight">
         <div className={`${title} font-extrabold tracking-tight text-white`}>
-          Quiz Time
+          Avishkar 5.0 Quiz
         </div>
       </div>
     </div>

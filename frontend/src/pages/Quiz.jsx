@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { useTeam } from '../context/TeamContext';
 import Logo from '../components/Logo';
-import TeamBadge from '../components/TeamBadge';
 import Timer from '../components/Timer';
 import QuestionCard from '../components/QuestionCard';
 import QuestionPalette from '../components/QuestionPalette';
@@ -16,10 +14,9 @@ function violationStorageKey(id) {
   return `qc_quiz_violations_${id}`;
 }
 
-export default function Quiz({ round = 1 }) {
-  const { team } = useTeam();
+export default function Quiz() {
   const navigate = useNavigate();
-  const attemptKey = `qc_attempt_id_round_${round}`;
+  const attemptKey = 'qc_attempt_id';
 
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState('');
@@ -70,7 +67,7 @@ export default function Quiz({ round = 1 }) {
     }
     localStorage.removeItem(attemptKey);
     sessionStorage.removeItem(violationStorageKey(id));
-    navigate(`/done?round=${round}`, { replace: true });
+    navigate('/done', { replace: true });
   };
 
   const registerViolation = () => {
@@ -108,6 +105,11 @@ export default function Quiz({ round = 1 }) {
     let cancelled = false;
     (async () => {
       try {
+        if (!document.fullscreenElement) {
+          navigate('/briefing', { replace: true });
+          return;
+        }
+
         let data = null;
         const savedId = localStorage.getItem(attemptKey);
         if (savedId) {
@@ -123,14 +125,14 @@ export default function Quiz({ round = 1 }) {
           }
         }
         if (!data) {
-          data = await api.startAttempt({ round });
+          data = await api.startAttempt({});
         }
         if (cancelled) return;
 
         if (data.attempt.status === 'submitted') {
           submittedRef.current = true;
           localStorage.removeItem(attemptKey);
-          navigate(`/done?round=${round}`, { replace: true });
+          navigate('/done', { replace: true });
           return;
         }
 
@@ -158,7 +160,7 @@ export default function Quiz({ round = 1 }) {
         if (cancelled) return;
         if (e.status === 409 && (e.data?.submitted === true || /already been submitted/i.test(e.message || ''))) {
           localStorage.removeItem(attemptKey);
-          navigate(`/done?round=${round}`, { replace: true });
+          navigate('/done', { replace: true });
           return;
         }
         setFatalError(e.message || 'Failed to load the quiz.');
@@ -168,7 +170,7 @@ export default function Quiz({ round = 1 }) {
     return () => {
       cancelled = true;
     };
-  }, [navigate, round]);
+  }, [navigate]);
 
   // ---- Ticking clock ----
   useEffect(() => {
@@ -241,16 +243,16 @@ export default function Quiz({ round = 1 }) {
     setSubmitting(true);
     (async () => {
       try {
-        const id = localStorage.getItem(`qc_attempt_id_round_${round}`);
+        const id = localStorage.getItem(attemptKey);
         if (id) await api.submitAttempt(id, {});
       } catch {
         /* server will auto-close on its side regardless */
       }
       if (attemptIdRef.current) sessionStorage.removeItem(violationStorageKey(attemptIdRef.current));
-      localStorage.removeItem(`qc_attempt_id_round_${round}`);
-      navigate(`/done?round=${round}`, { replace: true });
+      localStorage.removeItem(attemptKey);
+      navigate('/done', { replace: true });
     })();
-  }, [remainingMs, endsAt, submitting, navigate, round]);
+  }, [remainingMs, endsAt, submitting, navigate, attemptKey]);
 
   // ---- Answer selection (immediate save) ----
   const selectOption = async (optionKey) => {
@@ -266,8 +268,8 @@ export default function Quiz({ round = 1 }) {
     } catch (e) {
       if (e.status === 410 || e.status === 409) {
         submittedRef.current = true;
-        localStorage.removeItem(`qc_attempt_id_round_${round}`);
-        navigate(`/done?round=${round}`, { replace: true });
+        localStorage.removeItem(attemptKey);
+        navigate('/done', { replace: true });
         return;
       }
       setAnswers((a) => ({ ...a, [q._id]: previous }));
@@ -291,8 +293,8 @@ export default function Quiz({ round = 1 }) {
     const unanswered = questions.length - answered;
     const msg =
       unanswered > 0
-        ? `You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit Round ${round} anyway? This cannot be undone.`
-        : `Submit Round ${round}? This cannot be undone.`;
+        ? `You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit the quiz anyway? This cannot be undone.`
+        : 'Submit the quiz? This cannot be undone.';
     if (!window.confirm(msg)) return;
 
     setSubmitting(true);
@@ -300,8 +302,8 @@ export default function Quiz({ round = 1 }) {
     try {
       await api.submitAttempt(attemptId, {});
       if (attemptIdRef.current) sessionStorage.removeItem(violationStorageKey(attemptIdRef.current));
-      localStorage.removeItem(`qc_attempt_id_round_${round}`);
-      navigate(`/done?round=${round}`, { replace: true });
+      localStorage.removeItem(attemptKey);
+      navigate('/done', { replace: true });
     } catch (e) {
       setSubmitting(false);
       submittedRef.current = false;
@@ -359,11 +361,8 @@ export default function Quiz({ round = 1 }) {
         <div className="flex items-center gap-4">
           <Logo subtitle={false} />
           <div className="hidden h-8 w-px bg-[#333333] sm:block" />
-          <div className="hidden sm:block">
-            <TeamBadge team={team} />
-          </div>
           <span className="hidden sm:inline-block rounded-lg border border-[#333333] bg-[#0A0A0A] px-3 py-1 text-xs font-semibold text-[#FDBA74]">
-            Round {round}
+            Quiz
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -378,11 +377,9 @@ export default function Quiz({ round = 1 }) {
         </div>
       </header>
 
-      {/* Mobile team row */}
-      <div className="mt-3 flex items-center justify-between sm:hidden">
-        <TeamBadge team={team} />
+      <div className="mt-3 flex justify-end sm:hidden">
         <span className="rounded-lg border border-[#333333] bg-[#171717] px-3 py-1 text-xs font-semibold text-[#FDBA74]">
-          Round {round}
+          Quiz
         </span>
       </div>
 
@@ -491,7 +488,7 @@ export default function Quiz({ round = 1 }) {
               <span>Auto-submit Notice</span>
             </div>
             <p>
-              The round closes by itself when the countdown timer reaches zero. Your saved answers remain secure across browser refreshes.
+              The quiz closes by itself when the countdown timer reaches zero. Your saved answers remain secure across browser refreshes.
             </p>
           </div>
         </aside>
@@ -500,7 +497,7 @@ export default function Quiz({ round = 1 }) {
       {/* Submitting modal overlay */}
       {submitting && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0A0A0A]/85 backdrop-blur-sm">
-          <Spinner label="Submitting your round…" />
+          <Spinner label="Submitting your quiz…" />
         </div>
       )}
     </div>

@@ -10,20 +10,20 @@ const Tabs = [
   'Overview',
   'Teams',
   'Questions',
-  'Round 1 Results',
-  'Round 2 Results',
-  'Combined Results',
+  'Quiz Results',
 ];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { admin, logoutAdmin } = useAdmin();
   const [tab, setTab] = useState('Overview');
-  const [data, setData] = useState({ overview: null, teams: [], round1: [], round2: [], combined: [] });
+  const [data, setData] = useState({ overview: null, teams: [], results: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [questionRound, setQuestionRound] = useState(1);
+  const [questionSet, setQuestionSet] = useState('A');
+  const [activeSet, setActiveSet] = useState('A');
+  const [activeSetSaving, setActiveSetSaving] = useState(false);
 const [questions, setQuestions] = useState([]);
 const [questionsLoading, setQuestionsLoading] = useState(false);
 const [showQuestionForm, setShowQuestionForm] = useState(false);
@@ -48,10 +48,22 @@ const [questionForm, setQuestionForm] = useState(emptyQuestion);
 
   const load = useCallback(async () => {
     try {
-      const [overview, teams, round1, round2, combined] = await Promise.all([
-        api.adminOverview(), api.adminTeams(), api.adminRankings(1), api.adminRankings(2), api.adminCombinedResults(),
+      const [overview, teams, results] = await Promise.all([
+        api.adminOverview(), api.adminTeams(), api.adminRankings(),
       ]);
-      setData({ overview, teams: teams.teams, round1: round1.rankings, round2: round2.rankings, combined: combined.results });
+      const registeredTeams = teams.teams || [];
+      const teamDetails = new Map(
+        registeredTeams.map((team) => [String(team.teamNumber), team])
+      );
+      const enrichedResults = (results.rankings || []).map((result) => {
+        const team = teamDetails.get(String(result.teamNumber));
+        return {
+          ...result,
+          collegeName: team?.collegeName || '',
+          participants: team?.participants || result.participants || [],
+        };
+      });
+      setData({ overview, teams: registeredTeams, results: enrichedResults });
       setError('');
     } catch (err) {
       setError(err.message || 'Failed to load dashboard');
@@ -66,7 +78,7 @@ const [questionForm, setQuestionForm] = useState(emptyQuestion);
   setQuestionsLoading(true);
 
   try {
-    const result = await api.adminQuestions(questionRound);
+    const result = await api.adminQuestions(questionSet);
     setQuestions(result.questions || []);
     setError('');
   } catch (err) {
@@ -74,7 +86,28 @@ const [questionForm, setQuestionForm] = useState(emptyQuestion);
   } finally {
     setQuestionsLoading(false);
   }
-}, [questionRound]);
+}, [questionSet]);
+
+  const loadActiveSet = useCallback(async () => {
+    try {
+      const result = await api.adminActiveSet();
+      setActiveSet(result.activeSet);
+    } catch (err) {
+      setError(err.message || 'Failed to load active question set');
+    }
+  }, []);
+
+  const changeActiveSet = async (value) => {
+    setActiveSetSaving(true);
+    try {
+      const result = await api.adminSetActiveSet(value);
+      setActiveSet(result.activeSet);
+    } catch (err) {
+      setError(err.message || 'Failed to change active question set');
+    } finally {
+      setActiveSetSaving(false);
+    }
+  };
 
 useEffect(() => {
   if (tab === 'Questions') {
@@ -160,11 +193,11 @@ const saveQuestion = async () => {
     }
 
     const payload = {
-      round: questionRound,
+      set: questionSet,
       order: Number(questionForm.order),
-      type: questionRound === 2 ? questionForm.type : 'mcq',
+      type: 'mcq',
       questionText: questionForm.questionText.trim(),
-      imageUrl: questionRound === 2 ? questionForm.imageUrl : '',
+      imageUrl: '',
       options: questionForm.options,
       correctAnswer: questionForm.correctAnswer,
       marks: Number(questionForm.marks) || 1,
@@ -196,71 +229,28 @@ const deleteQuestion = async (question) => {
 };
 
 
-  useEffect(() => { load(); const id = setInterval(load, 8000); return () => clearInterval(id); }, [load]);
-  const reset = async (teamNumber, round) => {
-    if (!window.confirm(`Reset Team ${teamNumber} Round ${round}?`)) return;
-    try { await api.adminResetAttempt(teamNumber, round); await load(); } catch (err) { setError(err.message); }
+  useEffect(() => { load(); loadActiveSet(); const id = setInterval(load, 8000); return () => clearInterval(id); }, [load, loadActiveSet]);
+  const reset = async (teamNumber) => {
+    if (!window.confirm(`Reset Team ${teamNumber} quiz attempt?`)) return;
+    try { await api.adminResetAttempt(teamNumber); await load(); } catch (err) { setError(err.message); }
   };
   const forceSubmit = async (attempt) => {
     if (!window.confirm('Force-submit this attempt?')) return;
     try { await api.adminForceSubmit(attempt.attemptId); await load(); } catch (err) { setError(err.message); }
   };
 
-  const downloadCSV = (rows, filename, type) => {
-  let headers;
-  let dataRows;
-
-  if (type === 'combined') {
-    headers = [
-      'Rank',
-      'Team',
-      'Participants',
-      'Round 1 Score',
-      'Round 1 Time',
-      'Round 2 Score',
-      'Round 2 Time',
-      'Total Score',
-      'Total Time',
-    ];
-
-    dataRows = rows.map((row) => [
-      row.rank,
-      row.teamNumber,
-      row.participants?.join(' · ') || '',
-      row.round1Score ?? '',
-      row.round1Time != null
-        ? `${Math.floor(row.round1Time / 60)}m ${row.round1Time % 60}s`
-        : '',
-      row.round2Score ?? '',
-      row.round2Time != null
-        ? `${Math.floor(row.round2Time / 60)}m ${row.round2Time % 60}s`
-        : '',
-      row.total ?? '',
-      row.totalTime != null
-        ? `${Math.floor(row.totalTime / 60)}m ${row.totalTime % 60}s`
-        : '',
-    ]);
-  } else {
-    headers = [
-      'Rank',
-      'Team',
-      'Participants',
-      'Score',
-      'Time Taken',
-      'Submission Type',
-    ];
-
-    dataRows = rows.map((row) => [
-      row.rank,
-      row.teamNumber,
-      row.participants?.join(' · ') || '',
-      row.score ?? '',
-      row.timeTakenSeconds != null
-        ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s`
-        : '',
-      row.submissionType || 'submitted',
-    ]);
-  }
+  const downloadCSV = (rows, filename) => {
+  const headers = ['Rank', 'College Name', 'Participant 1', 'Participant 2', 'Question Set', 'Answered', 'Score', 'Time Taken'];
+  const dataRows = rows.map((row) => [
+    row.rank,
+    row.collegeName || '',
+    row.participants?.[0] || '',
+    row.participants?.[1] || '',
+    row.set || '',
+    `="${row.answeredCount ?? 0}/${row.totalQuestions ?? 0}"`,
+    row.score ?? '',
+    row.timeTakenSeconds != null ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s` : '',
+  ]);
 
   const escapeCSV = (value) =>
     `"${String(value).replace(/"/g, '""')}"`;
@@ -286,19 +276,38 @@ const deleteQuestion = async (question) => {
 
   if (loading) return <Spinner full label="Loading dashboard…" />;
   const overview = data.overview || {};
-  return <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-    <header className="card flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div className="flex items-center gap-4"><Logo subtitle={false} /><div><div className="text-xs uppercase tracking-widest text-[#A3A3A3]">Admin Dashboard</div><div className="text-sm font-semibold text-white">Signed in as {admin?.username}</div></div></div><div className="flex gap-2"><button onClick={load} className="btn-ghost text-sm">Refresh</button><button onClick={() => { logoutAdmin(); navigate('/admin'); }} className="btn-ghost text-sm">Sign out</button></div></header>
+  return <div className="min-h-screen bg-[#0A0A0A]">
+  <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <header className="card border-[#262626] bg-[#111111] px-5 py-4 shadow-xl shadow-black/20">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4"><Logo subtitle={false} /><div className="hidden h-9 w-px bg-[#333333] sm:block" /><div><div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FDBA74]">Admin Dashboard</div><div className="mt-1 text-sm font-medium text-white">Signed in as {admin?.username}</div></div></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label title="Automatic assignment distributes sets A-D for new attempts; this value is retained for manual/legacy administration." className="flex items-center gap-2 rounded-lg border border-[#333333] bg-[#0A0A0A] px-3 py-1.5 text-sm text-[#D4D4D4]">Configured set<select className="bg-transparent font-semibold text-[#FDBA74] outline-none" value={activeSet} disabled={activeSetSaving} onChange={(event) => changeActiveSet(event.target.value)}>{['A', 'B', 'C', 'D'].map((set) => <option key={set} value={set}>Set {set}</option>)}</select></label>
+          <button onClick={load} className="btn-ghost text-sm">Refresh</button><button onClick={() => { logoutAdmin(); navigate('/admin'); }} className="btn-ghost text-sm">Sign out</button>
+        </div>
+      </div>
+    </header>
     {error && <div className="mt-4 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3 text-sm text-rose-200">{error}</div>}
-    <nav className="mt-4 flex flex-wrap gap-2">{Tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? 'btn-primary text-sm' : 'btn-ghost text-sm'}>{item}</button>)}</nav>
-    {tab === 'Overview' && <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label="Teams" value={overview.registered || 0} /><Stat label="R1 submitted" value={overview.submitted || 0} /><Stat label="R2 submitted" value={overview.round2Submitted || 0} /><Stat label="R2 live" value={overview.round2InProgress || 0} /></section>}
-    {tab === 'Teams' && <section className="card mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Round 1</th><th className="p-4">Round 2</th><th className="p-4">Actions</th></tr></thead><tbody>{data.teams.map((team) => <tr key={team.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-mono font-bold text-white">{String(team.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">{team.participants.join(' · ') || '—'}</td><td className="p-4"><Status attempt={team.round1} /></td><td className="p-4"><Status attempt={team.round2} /></td><td className="p-4 space-x-2">{[team.round1, team.round2].filter(Boolean).map((attempt) => <span key={attempt.attemptId}>{attempt.status === 'in-progress' && <button onClick={() => forceSubmit(attempt)} className="btn-ghost px-2 py-1 text-xs">Force submit</button>}<button onClick={() => reset(team.teamNumber, attempt.round || (attempt === team.round1 ? 1 : 2))} className="btn-danger px-2 py-1 text-xs">Reset</button></span>)}</td></tr>)}</tbody></table></section>}
+    <nav className="mt-5 flex gap-2 overflow-x-auto border-b border-[#262626] pb-3">{Tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${tab === item ? 'bg-[#FDBA74] text-[#0A0A0A]' : 'text-[#A3A3A3] hover:bg-[#1C1C1C] hover:text-white'}`}>{item}</button>)}</nav>
+    {tab === 'Overview' && <section className="mt-6"><div className="mb-4"><h1 className="text-2xl font-bold tracking-tight text-white">Competition overview</h1><p className="mt-1 text-sm text-[#A3A3A3]">Live registration and quiz activity.</p></div><div className="grid gap-4 sm:grid-cols-3"><Stat label="Registered teams" value={overview.registered || 0} /><Stat label="Quiz submitted" value={overview.submitted || 0} /><Stat label="Quiz in progress" value={overview.inProgress || 0} /></div></section>}
+    {tab === 'Teams' && <section className="card mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Assigned Set</th><th className="p-4">Submission Status</th><th className="p-4">Actions</th></tr></thead><tbody>{data.teams.map((team) => <tr key={team.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-mono font-bold text-white">{String(team.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">
+  <div className="font-medium">
+    {team.collegeName || 'College not recorded'}
+  </div>
+  <div className="mt-1 text-sm text-[#A3A3A3]">
+    {[team.participants?.[0], team.participants?.[1]]
+      .filter(Boolean)
+      .join(' · ')
+      || 'Participants not recorded'}
+  </div>
+</td><td className="p-4 font-mono font-bold text-[#FDBA74]">{team.quiz?.set || '—'}</td><td className="p-4"><Status attempt={team.quiz} /></td><td className="p-4 space-x-2">{team.quiz && <span>{team.quiz.status === 'in-progress' && <button onClick={() => forceSubmit(team.quiz)} className="btn-ghost px-2 py-1 text-xs">Force submit</button>}<button onClick={() => reset(team.teamNumber)} className="btn-danger px-2 py-1 text-xs">Reset</button></span>}</td></tr>)}</tbody></table></section>}
     {tab === 'Questions' && (
   <section className="card mt-4 p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="font-semibold text-white">Question Management</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Manage MCQs before the round starts.
+          Manage MCQs before the quiz starts.
         </p>
       </div>
 
@@ -311,20 +320,20 @@ const deleteQuestion = async (question) => {
     </div>
 
     <div className="mt-5 flex gap-2">
-      {[1, 2].map((round) => (
+      {['A', 'B', 'C', 'D'].map((set) => (
         <button
-          key={round}
+        key={set}
           onClick={() => {
-            setQuestionRound(round);
+          setQuestionSet(set);
             setShowQuestionForm(false);
           }}
           className={
-            questionRound === round
+          questionSet === set
               ? 'btn-primary text-sm'
               : 'btn-ghost text-sm'
           }
         >
-          Round {round}
+        Set {set}
         </button>
       ))}
     </div>
@@ -382,8 +391,8 @@ const deleteQuestion = async (question) => {
         </label>
       </div>
 
-      {/* Round 2 question type + image */}
-      {questionRound === 2 && (
+      {/* Optional image-question controls are reserved for future question types. */}
+      {false && (
         <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
           <label className="block text-sm text-slate-300">
             <span className="mb-1 block">Question type</span>
@@ -531,7 +540,7 @@ const deleteQuestion = async (question) => {
       </div>
     ) : questions.length === 0 ? (
       <div className="py-10 text-center text-slate-400">
-        No questions found for Round {questionRound}.
+        No questions found for Set {questionSet}.
       </div>
     ) : (
       <div className="mt-5 space-y-3">
@@ -717,95 +726,42 @@ const deleteQuestion = async (question) => {
   </section>
 )}
 
-{tab === 'Round 1 Results' && (
-  <>
-    <div className="mt-4 flex justify-end">
-      <button
-        onClick={() => downloadCSV(data.round1, 'round-1-results.csv', 'round')}
-        className="btn-primary text-sm"
-      >
-        Download CSV
-      </button>
-    </div>
-    <Results rows={data.round1} title="Round 1 Results" />
-  </>
-)}
-
-{tab === 'Round 2 Results' && (
-  <>
-    <div className="mt-4 flex justify-end">
-      <button
-        onClick={() => downloadCSV(data.round2, 'round-2-results.csv', 'round')}
-        className="btn-primary text-sm"
-      >
-        Download CSV
-      </button>
-    </div>
-    <Results rows={data.round2} title="Round 2 Results" />
-  </>
-)}
-    {tab === 'Combined Results' && <section className="card mt-4 overflow-x-auto">
-  <div className="flex items-center justify-between p-5">
-    <h2 className="font-semibold text-white">Combined Results</h2>
+{tab === 'Quiz Results' && <section className="card mt-4 overflow-x-auto">
+  <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+    <h2 className="font-semibold text-white">Quiz Results</h2>
 
     <button
-      onClick={() =>
-        downloadCSV(
-          data.combined,
-          'combined-results.csv',
-          'combined'
-        )
-      }
+      onClick={() => downloadCSV(data.results, 'quiz-results.csv')}
       className="btn-primary text-sm"
     >
       Download CSV
     </button>
   </div>
-  <h2 className="p-5 font-semibold text-white">Combined Results</h2><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Rank</th><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Round 1</th>
-<th className="p-4">R1 Time</th>
-<th className="p-4">Round 2</th>
-<th className="p-4">R2 Time</th>
-<th className="p-4">Total</th>
-<th className="p-4">Total Time</th></tr></thead><tbody>{data.combined.map((row) => <tr key={row.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-bold text-white">{row.rank}</td><td className="p-4 font-mono text-white">{String(row.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">{row.participants.join(' · ') || '—'}</td><td className="p-4 font-mono text-white">{row.round1Score ?? '—'}</td>
-
-<td className="p-4 font-mono text-[#A3A3A3]">
-  {row.round1Time != null
-    ? `${Math.floor(row.round1Time / 60)}m ${row.round1Time % 60}s`
-    : '—'}
-</td>
-
-<td className="p-4 font-mono text-white">{row.round2Score ?? '—'}</td>
-
-<td className="p-4 font-mono text-[#A3A3A3]">
-  {row.round2Time != null
-    ? `${Math.floor(row.round2Time / 60)}m ${row.round2Time % 60}s`
-    : '—'}
-</td>
-
-<td className="p-4 font-mono font-bold text-[#FDBA74]">{row.total}</td>
-
-<td className="p-4 font-mono font-bold text-white">
-  {row.totalTime != null
-    ? `${Math.floor(row.totalTime / 60)}m ${row.totalTime % 60}s`
-    : '—'}
-</td></tr>)}</tbody></table></section>}
-    <div className="mt-5 text-sm text-[#A3A3A3]"><Link to="/round1" className="text-[#FDBA74] hover:underline">View participant site →</Link></div>
+  <ResultsTable rows={data.results} />
+</section>}
+    <div className="mt-5 text-sm text-[#A3A3A3]"><Link to="/quiz" className="text-[#FDBA74] hover:underline">View participant site →</Link></div>
+  </div>
   </div>;
 }
-function Stat({ label, value }) { return <div className="card p-4 border-[#262626] bg-[#171717]"><div className="text-xs uppercase text-[#A3A3A3] font-semibold">{label}</div><div className="mt-1 font-mono text-3xl font-bold text-white">{value}</div></div>; }
-function Status({ attempt }) { return !attempt ? <span className="text-[#737373]">Not started</span> : <span className={attempt.status === 'submitted' ? 'text-[#FDBA74] font-medium' : 'text-white'}>{attempt.status === 'submitted' ? `Submitted · ${attempt.score}` : 'In progress'}</span>; }
-function Results({ rows, title }) { return <section className="card mt-4 overflow-x-auto"><h2 className="p-5 font-semibold text-white">{title}</h2><table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Rank</th><th className="p-4">Team</th><th className="p-4">Participants</th><th className="p-4">Score</th>
-<th className="p-4">Time Taken</th>
-<th className="p-4">Status</th>
-<th className="p-4">Time Taken</th></tr></thead><tbody>{rows.map((row) => <tr key={row.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-bold text-white">{row.rank}</td><td className="p-4 font-mono text-white">{String(row.teamNumber).padStart(2, '0')}</td><td className="p-4 text-white">{row.participants.join(' · ')}</td><td className="p-4 font-mono font-bold text-[#FDBA74]">{row.score}</td>
+function Stat({ label, value }) { return <div className="card border-[#262626] bg-[#171717] p-5 shadow-lg shadow-black/10"><div className="h-1 w-10 rounded-full bg-[#FDBA74]" /><div className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#A3A3A3]">{label}</div><div className="mt-1 font-mono text-3xl font-bold text-white">{value}</div></div>; }
+function Status({ attempt }) {
+  if (!attempt) return <span className="text-[#737373]">Not started</span>;
+  if (attempt.status !== 'submitted') return <span className="text-white">In progress</span>;
+
+  const answeredCount = (attempt.answers || [])
+    .filter((answer) => answer.selectedOption)
+    .length;
+
+  return (
+    <span className="text-[#FDBA74] font-medium">
+      Submitted · {answeredCount}/{attempt.totalQuestions} questions
+    </span>
+  );
+}
+function ResultsTable({ rows }) { return <table className="w-full text-sm"><thead><tr className="border-b border-[#262626] text-left text-xs uppercase text-[#A3A3A3]"><th className="p-4">Rank</th><th className="p-4">College Name</th><th className="p-4">Participant 1</th><th className="p-4">Participant 2</th><th className="p-4">Question Set</th><th className="p-4">Answered</th><th className="p-4">Score</th><th className="p-4">Time</th><th className="p-4">Submission Type</th></tr></thead><tbody>{rows.map((row) => <tr key={row.teamNumber} className="border-t border-[#262626] hover:bg-[#1C1C1C] transition-colors"><td className="p-4 font-bold text-white">{row.rank}</td><td className="p-4 text-white">{row.collegeName || '—'}</td><td className="p-4 text-white">{row.participants?.[0] || '—'}</td><td className="p-4 text-white">{row.participants?.[1] || '—'}</td><td className="p-4 font-mono font-bold text-[#FDBA74]">{row.set || '—'}</td><td className="p-4 font-mono text-[#A3A3A3]">{row.answeredCount ?? 0}/{row.totalQuestions ?? 0}</td><td className="p-4 font-mono font-bold text-[#FDBA74]">{row.score ?? '—'}</td>
 <td className="p-4 font-mono text-[#A3A3A3]">
   {row.timeTakenSeconds != null
     ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s`
     : '—'}
 </td>
-<td className="p-4 text-white">{row.submissionType || 'submitted'}</td>
-<td className="p-4 font-mono text-[#A3A3A3]">
-  {row.timeTakenSeconds != null
-    ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s`
-    : '—'}
-</td></tr>)}</tbody></table></section>; }
+ <td className="p-4 text-white">{row.status === 'submitted' ? (row.submissionType || 'Submitted') : 'In progress'}</td></tr>)}</tbody></table>; }

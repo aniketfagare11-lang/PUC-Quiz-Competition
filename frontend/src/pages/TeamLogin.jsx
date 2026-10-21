@@ -55,14 +55,9 @@ export default function TeamLogin() {
         </Link>
 
         <div className="card p-7">
-          <div className="mb-6 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-[#FDBA74]/30 bg-[#FDBA74]/10 font-mono text-2xl font-bold text-[#FDBA74]">
-              {String(teamNumber).padStart(2, '0')}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Team {teamNumber} — Continue</h1>
-              <p className="text-sm text-[#A3A3A3]">Verify your member names to resume.</p>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-white">Continue Your Quiz</h1>
+            <p className="text-sm text-[#A3A3A3]">Verify your participant names to resume.</p>
           </div>
 
           {error && (

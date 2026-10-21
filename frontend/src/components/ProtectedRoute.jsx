@@ -4,7 +4,7 @@ import { useAdmin } from '../context/AdminContext';
 
 export function TeamRoute({ children }) {
   const { team } = useTeam();
-  if (!team) return <Navigate to="/team" replace />;
+  if (!team) return <Navigate to="/register" replace />;
   return children;
 }
 

@@ -1,12 +1,116 @@
 const Attempt = require('../models/Attempt');
 const Question = require('../models/Question');
-const QuizConfig = require('../models/QuizConfig');
+const QuizSetAllocator = require('../models/QuizSetAllocator');
 const Team = require('../models/Team');
 const { autoSubmitIfExpired, buildAttemptState, remainingSeconds } = require('../utils/attemptState');
 
 function roundTimeLimit(round) {
   const fromEnv = Number(process.env[`ROUND${round}_TIME_LIMIT_SECONDS`]);
-  return fromEnv > 0 ? fromEnv : 1200;
+  return fromEnv > 0 ? fromEnv : 3000;
+}
+
+// GET /api/attempts/info -> briefing data without creating an attempt
+exports.info = async (req, res, next) => {
+  try {
+    const team = await Team.findOne({ teamNumber: req.team.teamNumber }).select('_id');
+    if (!team) return res.status(404).json({ message: 'Team not registered' });
+
+    const attempt = await Attempt.findOne({ team: team._id, round: 1 })
+      .select('questionOrder answers timeLimitSeconds set status');
+    if (attempt) {
+      const totalQuestions = attempt.questionOrder?.length || attempt.answers?.length || 0;
+      return res.json({
+        questionCount: totalQuestions,
+        timeLimitSeconds: attempt.timeLimitSeconds || roundTimeLimit(1),
+        set: attempt.set,
+        status: attempt.status,
+      });
+    }
+
+    const sets = ['A', 'B', 'C', 'D'];
+    const counts = await Promise.all(
+      sets.map((set) => Question.countDocuments({ round: 1, set }))
+    );
+    const questionCount = counts.every((count) => count === counts[0]) ? counts[0] : null;
+
+    return res.json({
+      questionCount,
+      timeLimitSeconds: roundTimeLimit(1),
+      set: null,
+      status: null,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+function shuffleQuestions(questions) {
+  const shuffled = [...questions];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function randomSetOrder() {
+  const sets = ['A', 'B', 'C', 'D'];
+  for (let index = sets.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [sets[index], sets[swapIndex]] = [sets[swapIndex], sets[index]];
+  }
+  return sets;
+}
+
+async function allocateQuestionSet() {
+  for (let retry = 0; retry < 3; retry += 1) {
+    try {
+      const allocator = await QuizSetAllocator.findOneAndUpdate(
+        { key: 'round-1' },
+        {
+          $inc: { nextSlot: 1 },
+          $setOnInsert: { setOrder: randomSetOrder() },
+        },
+        {
+          new: true,
+          upsert: retry === 0,
+          setDefaultsOnInsert: true,
+        }
+      );
+
+      if (!allocator) {
+        continue;
+      }
+
+      const slot = allocator.nextSlot - 1;
+      return allocator.setOrder[slot % allocator.setOrder.length];
+    } catch (err) {
+      if (err.code !== 11000 || retry === 2) {
+        throw err;
+      }
+    }
+  }
+
+  throw new Error('Question-set allocator could not be initialized');
+}
+
+async function validateQuestionSets() {
+  const sets = ['A', 'B', 'C', 'D'];
+  const counts = await Promise.all(
+    sets.map((set) => Question.countDocuments({ round: 1, set }))
+  );
+  const invalidSets = sets.filter((set, index) => counts[index] !== 50);
+
+  if (invalidSets.length > 0) {
+    const details = invalidSets
+      .map((set) => `${set} has ${counts[sets.indexOf(set)]}`)
+      .join(', ');
+    const error = new Error(
+      `Quiz cannot start because every Round 1 set must contain exactly 50 questions (${details})`
+    );
+    error.status = 400;
+    throw error;
+  }
 }
 
 // POST /api/attempts/start -> create or resume the team's single quiz attempt
@@ -59,24 +163,28 @@ exports.start = async (req, res, next) => {
     }
 
     if (!attempt) {
-      const config = await QuizConfig.findOneAndUpdate(
-        { key: 'quiz' },
-        { $setOnInsert: { activeSet: 'A' } },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-      );
+      try {
+        await validateQuestionSets();
+      } catch (err) {
+        if (err.status === 400) {
+          return res.status(400).json({ message: err.message });
+        }
+        throw err;
+      }
 
-      const activeSet = config.activeSet || 'A';
+      const activeSet = await allocateQuestionSet();
 
       const questions = await Question.find({
         round: 1,
         set: activeSet,
       }).sort({ order: 1 });
 
-      if (!questions.length) {
+      if (questions.length !== 50) {
         return res.status(400).json({
-          message: `No questions available in Set ${activeSet}`,
+          message: `Set ${activeSet} must contain exactly 50 questions before the quiz can start`,
         });
       }
+      const shuffledQuestions = shuffleQuestions(questions);
 
       try {
         attempt = await Attempt.create({
@@ -86,7 +194,8 @@ exports.start = async (req, res, next) => {
           set: activeSet,
           participants,
           timeLimitSeconds: roundTimeLimit(1),
-          answers: questions.map((q) => ({
+          questionOrder: shuffledQuestions.map((q) => q._id),
+          answers: shuffledQuestions.map((q) => ({
             question: q._id,
             selectedOption: '',
           })),
@@ -94,8 +203,15 @@ exports.start = async (req, res, next) => {
       } catch (err) {
         if (err.code !== 11000) throw err;
 
-        attempt = await Attempt.findOne({ team: team._id, round: 1 });
-        if (!attempt) throw err;
+        for (let retry = 0; retry < 3 && !attempt; retry += 1) {
+          attempt = await Attempt.findOne({ team: team._id, round: 1 });
+          if (!attempt && retry < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+        }
+        if (!attempt) {
+          throw err;
+        }
       }
     }
 
@@ -145,6 +261,9 @@ exports.saveAnswer = async (req, res, next) => {
     const ans = attempt.answers.find((a) => String(a.question) === String(questionId));
     if (!ans) return res.status(400).json({ message: 'Question does not belong to this attempt' });
 
+    if (selectedOption !== '' && !['A', 'B', 'C', 'D'].includes(selectedOption)) {
+      return res.status(400).json({ message: 'selectedOption must be A, B, C, D, or empty' });
+    }
     ans.selectedOption = typeof selectedOption === 'string' ? selectedOption : '';
     ans.updatedAt = new Date();
     await attempt.save();

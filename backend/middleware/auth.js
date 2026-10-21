@@ -1,14 +1,18 @@
 const jwt = require('jsonwebtoken');
 
-const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be configured in production');
+}
+const TOKEN_SECRET = SECRET || 'dev-insecure-secret-change-me';
 const TOKEN_TTL = '12h';
 
 function signTeam(teamNumber, participants = []) {
-  return jwt.sign({ role: 'team', teamNumber, participants }, SECRET, { expiresIn: TOKEN_TTL });
+  return jwt.sign({ role: 'team', teamNumber, participants }, TOKEN_SECRET, { expiresIn: TOKEN_TTL });
 }
 
 function signAdmin(username) {
-  return jwt.sign({ role: 'admin', username }, SECRET, { expiresIn: TOKEN_TTL });
+  return jwt.sign({ role: 'admin', username }, TOKEN_SECRET, { expiresIn: TOKEN_TTL });
 }
 
 function extractToken(req) {
@@ -20,7 +24,7 @@ function verifyAdmin(req, res, next) {
   const token = extractToken(req);
   if (!token) return res.status(401).json({ message: 'Authentication required' });
   try {
-    const decoded = jwt.verify(token, SECRET);
+    const decoded = jwt.verify(token, TOKEN_SECRET);
     if (decoded.role !== 'admin') return res.status(403).json({ message: 'Admin access only' });
     req.admin = decoded;
     return next();
@@ -33,7 +37,7 @@ function verifyTeam(req, res, next) {
   const token = extractToken(req);
   if (!token) return res.status(401).json({ message: 'Team authentication required' });
   try {
-    const decoded = jwt.verify(token, SECRET);
+    const decoded = jwt.verify(token, TOKEN_SECRET);
     if (decoded.role !== 'team') return res.status(403).json({ message: 'Team token required' });
     req.team = decoded; // { teamNumber }
     return next();
@@ -42,4 +46,4 @@ function verifyTeam(req, res, next) {
   }
 }
 
-module.exports = { signTeam, signAdmin, verifyAdmin, verifyTeam, SECRET };
+module.exports = { signTeam, signAdmin, verifyAdmin, verifyTeam, SECRET: TOKEN_SECRET };

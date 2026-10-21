@@ -1,7 +1,7 @@
 {
-  "name": "ai-quiz-time-backend",
+  "name": "avishkar-5-quiz-backend",
   "version": "1.0.0",
-  "description": "AI Quiz Competition Platform - Backend (Phase 1)",
+  "description": "Avishkar 5.0 Quiz Competition backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

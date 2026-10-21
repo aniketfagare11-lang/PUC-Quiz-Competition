@@ -1,18 +1,36 @@
 const Team = require('../models/Team');
+const TeamCounter = require('../models/TeamCounter');
 const { signTeam } = require('../middleware/auth');
 
-const TOTAL_TEAMS = Number(process.env.TOTAL_TEAMS) || 20;
+const normalizeName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+const normalizeKey = (value) => normalizeName(value).toLocaleLowerCase();
+
+async function allocateTeamNumber() {
+  const highestTeam = await Team.findOne()
+    .sort({ teamNumber: -1 })
+    .select('teamNumber -_id')
+    .lean();
+
+  await TeamCounter.updateOne(
+    { key: 'teams' },
+    { $max: { nextTeamNumber: highestTeam?.teamNumber || 0 } },
+    { upsert: true }
+  );
+
+  const counter = await TeamCounter.findOneAndUpdate(
+    { key: 'teams' },
+    { $inc: { nextTeamNumber: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  return counter.nextTeamNumber;
+}
 
 // GET /api/teams/availability -> predefined teams available for event entry
 exports.availability = async (req, res, next) => {
   try {
-    const taken = await Team.find().select('teamNumber -_id').lean();
-    const availableSet = new Set(taken.map((t) => t.teamNumber));
-    const teams = [];
-    for (let i = 1; i <= TOTAL_TEAMS; i += 1) {
-      teams.push({ teamNumber: i, available: availableSet.has(i) });
-    }
-    return res.json({ totalTeams: TOTAL_TEAMS, teams });
+    const teams = await Team.find().sort({ teamNumber: 1 }).select('teamNumber -_id').lean();
+    return res.json({ totalTeams: null, teams: teams.map((team) => ({ ...team, available: false })) });
   } catch (err) {
     return next(err);
   }
@@ -21,39 +39,89 @@ exports.availability = async (req, res, next) => {
 // Legacy endpoint retained for backwards compatibility. New events use /session.
 exports.register = async (req, res, next) => {
   try {
-    const teamNumber = Number(req.body.teamNumber);
-    const member1Name = (req.body.member1Name || '').trim(); // 1st semester
-    const member2Name = (req.body.member2Name || '').trim(); // 3rd semester
+    const collegeName = normalizeName(req.body.collegeName);
+    const member1Name = normalizeName(req.body.member1Name);
+    const member2Name = normalizeName(req.body.member2Name);
 
-    if (!Number.isInteger(teamNumber) || teamNumber < 1 || teamNumber > TOTAL_TEAMS) {
-      return res.status(400).json({ message: `Invalid team number (1-${TOTAL_TEAMS})` });
-    }
-    if (!member1Name || !member2Name) {
-      return res.status(400).json({ message: 'Both member names are required' });
-    }
-    if (member1Name.length > 60 || member2Name.length > 60) {
-      return res.status(400).json({ message: 'Member names are too long' });
+    if (!collegeName || !member1Name || !member2Name) {
+      return res.status(400).json({
+        message: 'College name and both participant names are required',
+      });
     }
 
-    const existing = await Team.findOne({ teamNumber });
-    if (existing) {
-      return res.status(409).json({ message: `Team ${teamNumber} is already registered` });
+    if (
+      collegeName.length > 120 ||
+      member1Name.length > 60 ||
+      member2Name.length > 60 ||
+      member1Name.toLocaleLowerCase() === member2Name.toLocaleLowerCase()
+    ) {
+      return res.status(400).json({
+        message: member1Name.toLocaleLowerCase() === member2Name.toLocaleLowerCase()
+          ? 'Participant names must be different'
+          : 'College or participant name exceeds the allowed length',
+      });
     }
 
-    const team = await Team.create({ teamNumber, member1Name, member2Name });
-    return res.status(201).json({
-      team: {
-        teamNumber: team.teamNumber,
-        member1Name: team.member1Name,
-        member2Name: team.member2Name,
-        registeredAt: team.registeredAt,
-      },
-      token: signTeam(teamNumber, [team.member1Name, team.member2Name]),
+    const registrationKey = [collegeName, ...[member1Name, member2Name].sort()]
+      .map(normalizeKey)
+      .join('|');
+    const duplicate = await Team.findOne({ registrationKey }).select('+registrationKey').lean();
+    if (duplicate) {
+      return res.status(409).json({ message: `This team is already registered as Team ${duplicate.teamNumber}` });
+    }
+
+    const sameCollegeTeams = await Team.find({ collegeName }).select('teamNumber member1Name member2Name').lean();
+    const duplicateExisting = sameCollegeTeams.find((team) => {
+      const names = [normalizeKey(team.member1Name), normalizeKey(team.member2Name)].sort();
+      return names.join('|') === [normalizeKey(member1Name), normalizeKey(member2Name)].sort().join('|');
     });
+    if (duplicateExisting) {
+      return res.status(409).json({ message: `This team is already registered as Team ${duplicateExisting.teamNumber}` });
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const teamNumber = await allocateTeamNumber();
+      try {
+        const team = await Team.create({
+          teamNumber,
+          collegeName,
+          member1Name,
+          member2Name,
+          registrationKey,
+        });
+
+        return res.status(201).json({
+          team: {
+            teamNumber: team.teamNumber,
+            collegeName: team.collegeName,
+            member1Name: team.member1Name,
+            member2Name: team.member2Name,
+            registeredAt: team.registeredAt,
+          },
+          token: signTeam(teamNumber, [member1Name, member2Name]),
+        });
+      } catch (err) {
+        if (err.code === 11000) {
+          const sameRegistration = await Team.findOne({ registrationKey })
+            .select('+registrationKey')
+            .lean();
+          if (sameRegistration) {
+            return res.status(409).json({
+              message: `This team is already registered as Team ${sameRegistration.teamNumber}`,
+            });
+          }
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    return res.status(503).json({ message: 'Registration is busy. Please try again.' });
   } catch (err) {
-    // Defensive: unique-index race
     if (err.code === 11000) {
-      return res.status(409).json({ message: `Team ${req.body.teamNumber} is already registered` });
+      return res.status(409).json({
+        message: 'Team number conflict. Please register again.',
+      });
     }
     return next(err);
   }
@@ -66,8 +134,8 @@ exports.login = async (req, res, next) => {
     const member1Name = (req.body.member1Name || '').trim();
     const member2Name = (req.body.member2Name || '').trim();
 
-    if (!Number.isInteger(teamNumber) || teamNumber < 1 || teamNumber > TOTAL_TEAMS) {
-      return res.status(400).json({ message: `Invalid team number (1-${TOTAL_TEAMS})` });
+    if (!Number.isInteger(teamNumber) || teamNumber < 1) {
+      return res.status(400).json({ message: 'Invalid team number' });
     }
     if (!member1Name || !member2Name) {
       return res.status(400).json({ message: 'Both member names are required' });
@@ -105,10 +173,10 @@ exports.login = async (req, res, next) => {
   }
 };
 
-const normalizeName = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+const normalizeParticipant = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 const matchingParticipants = (left, right) => {
-  const a = (left || []).map(normalizeName).sort();
-  const b = (right || []).map(normalizeName).sort();
+  const a = (left || []).map(normalizeParticipant).sort();
+  const b = (right || []).map(normalizeParticipant).sort();
   return a.length === 2 && b.length === 2 && a[0] && a[0] === b[0] && a[1] === b[1];
 };
 
@@ -121,13 +189,13 @@ exports.session = async (req, res, next) => {
     const participants = Array.isArray(req.body.participants)
       ? req.body.participants.map((name) => String(name || '').trim().replace(/\s+/g, ' '))
       : [];
-    if (!Number.isInteger(teamNumber) || teamNumber < 1 || teamNumber > TOTAL_TEAMS || ![1, 2].includes(round)) {
+    if (!Number.isInteger(teamNumber) || teamNumber < 1 || ![1, 2].includes(round)) {
       return res.status(400).json({ message: 'Invalid team or round' });
     }
     if (participants.length !== 2 || participants.some((name) => !name || name.length > 60)) {
       return res.status(400).json({ message: 'Enter both participant names' });
     }
-    if (normalizeName(participants[0]) === normalizeName(participants[1])) {
+    if (normalizeParticipant(participants[0]) === normalizeParticipant(participants[1])) {
       return res.status(400).json({ message: 'Participant names must be different' });
     }
 
@@ -172,5 +240,3 @@ exports.me = async (req, res, next) => {
     return next(err);
   }
 };
-
-module.exports.TOTAL_TEAMS = TOTAL_TEAMS;

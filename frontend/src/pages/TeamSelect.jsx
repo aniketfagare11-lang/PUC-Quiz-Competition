@@ -40,7 +40,7 @@ export default function TeamSelect() {
         {team && (
           <div className="card mb-6 flex flex-col items-start justify-between gap-3 border-[#FDBA74]/30 bg-[#FDBA74]/10 p-4 sm:flex-row sm:items-center">
             <div className="text-sm text-white">
-              You are already logged in as <span className="font-bold text-[#FDBA74]">Team {team.teamNumber}</span>.
+              You are already logged in. Continue your quiz when ready.
             </div>
             <button onClick={() => navigate('/briefing')} className="btn-primary text-sm">
               Go to Briefing →
@@ -71,9 +71,6 @@ export default function TeamSelect() {
                       ? 'border-[#383838] bg-[#171717] hover:border-[#FDBA74] hover:bg-[#1E1E1E]'
                       : 'border-[#262626] bg-[#171717] hover:border-[#383838] hover:bg-[#1E1E1E]'}`}
                 >
-                  <span className="font-mono text-3xl font-bold text-white">
-                    {String(t.teamNumber).padStart(2, '0')}
-                  </span>
                   <span className="text-xs font-medium uppercase tracking-wider text-[#A3A3A3]">
                     {isCurrent ? 'Your team' : t.registered ? 'Login' : 'Register'}
                   </span>

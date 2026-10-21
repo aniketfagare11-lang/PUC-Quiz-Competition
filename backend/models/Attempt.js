@@ -20,6 +20,10 @@ const attemptSchema = new mongoose.Schema(
   required: true,
   default: 'A',
 },
+questionOrder: {
+  type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
+  default: undefined,
+},
     participants: {
       type: [{ type: String, trim: true }],
       default: undefined,
@@ -34,7 +38,7 @@ const attemptSchema = new mongoose.Schema(
     submissionType: { type: String, enum: ['manual', 'auto', 'forced'], default: 'manual' },
     startedAt: { type: Date, default: Date.now }, // timer anchor (server-authoritative)
     submittedAt: { type: Date },
-    timeLimitSeconds: { type: Number, default: 1200 },
+    timeLimitSeconds: { type: Number, default: 3000 },
   },
   { timestamps: true }
 );

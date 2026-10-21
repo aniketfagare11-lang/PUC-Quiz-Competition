@@ -1,6 +1,6 @@
-# PUC Quiz Competition
+# Avishkar 5.0 Quiz Competition
 
-A web-based quiz competition platform for PUC students, featuring team authentication, timed quizzes, four question sets (A, B, C, D), and an admin dashboard.
+A production-ready web-based quiz competition platform for PUC students, featuring team authentication, a timed quiz, four question sets (A, B, C, D), and an admin dashboard.
 
 ## Tech Stack
 
@@ -46,25 +46,26 @@ PUC-Quiz-Competition/
 
 3. Create a `.env` file inside `backend/` using the required environment variables:
 
-   ```env
-   PORT=5000
-   MONGODB_URI=your_mongodb_connection_string
-   JWT_SECRET=your_jwt_secret
-   ```
-
-   Add any other environment variables required by your existing backend configuration. Never commit actual credentials.
+   Copy `backend/.env.example` to `backend/.env` and set `MONGO_URI`,
+   `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `CLIENT_URL`.
+   Use a long random JWT secret and never commit actual credentials.
 
 4. Start the backend using the script configured in `backend/package.json`, for example:
 
    ```bash
-   npm run dev
+   npm start
    ```
+
+For local development, `npm run dev` starts the nodemon watcher.
 
 ## API Base URL
 
-```text
-http://localhost:5000/api
-```
+The local API is `http://localhost:5000/api`. In production, deploy the
+backend at an HTTPS URL and set that URL in the frontend build environment as
+`VITE_API_URL` (for example, `https://quiz-api.example.com`). Do not include a
+trailing slash. The frontend uses relative `/api` requests when this variable
+is empty, which is suitable when a production reverse proxy serves both the
+frontend and backend under the same origin.
 
 ### Team APIs
 
@@ -112,9 +113,18 @@ Use the exact request formats expected by the backend controllers.
 | GET | `/admin/active-set` | View the active question set |
 | PUT | `/admin/active-set` | Change the active question set |
 
-Changing the active set affects new attempts. Existing attempts retain their assigned set.
+New quiz attempts receive Sets A-D automatically in a randomized, balanced
+cycle. The assignment is claimed atomically in MongoDB and is persisted on the
+attempt. Existing attempts retain their assigned set. The admin active-set
+configuration remains available for manual or legacy administration but does
+not control automatic assignment.
 
 Admin-protected routes require an admin JWT token.
+
+Registration accepts `collegeName`, `member1Name`, and `member2Name`. The backend
+assigns the next unique team number automatically; the participant does not
+submit a team number. A successful registration returns the assigned team and
+the team JWT used by the quiz routes.
 
 ## Question Sets
 
@@ -125,24 +135,30 @@ The platform supports four sets:
 - Set C
 - Set D
 
-The admin selects which set is active. When a team starts a quiz, its assigned set is saved to the attempt.
+When a team starts a quiz, its assigned set is saved to the attempt.
 
 ## Important Notes
 
-- The competition uses one quiz round.
+- The competition uses one quiz.
 - Correct answers must never be exposed to the frontend.
 - The backend controls scoring, timing, and submission.
 - Keep `.env` and all secrets out of Git.
-- The current database contains temporary test questions. Replace them with the approved competition questions before the event.
-- `localhost` is for local development; configure the deployed API URL for production.
+- `backend/seed.js` loads the four source-backed Avishkar papers as Sets A, B, C,
+  and D, with 50 questions per set. It also initializes the active set to A and
+  creates the configured admin account without modifying teams, attempts, or results.
+- Configure `CLIENT_URL` on the backend to the exact frontend origin(s), comma-separated if needed.
+- Configure `VITE_API_URL` before building the frontend when the backend is hosted on a different origin.
+- Configure SPA fallback routing on the frontend host so `/quiz`, `/admin`, and `/done` serve `index.html`.
 
-## Frontend Integration
+## Frontend Deployment
 
-The frontend developer should:
+From the frontend directory:
 
-1. Connect team registration/session and login screens.
-2. Store and send the team JWT securely.
-3. Display questions returned by the attempt API.
-4. Send selected answers to the backend.
-5. Display the timer and handle automatic or manual submission.
-6. Build the admin interface for login, question management, active-set selection, and results.
+```bash
+npm install
+npm run build
+```
+
+Serve the generated `frontend/dist` directory from a static host with SPA
+fallbacks enabled. Set `VITE_API_URL` in the hosting provider's build
+environment before running the build.

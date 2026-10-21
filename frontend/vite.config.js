@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // The dev server proxies /api -> the Express backend (same machine).
-// This keeps browser-facing requests relative so the preview works.
+// Production builds use VITE_API_URL from src/api/client.js instead.
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -12,7 +12,7 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:5000',
         changeOrigin: true,
       },
     },

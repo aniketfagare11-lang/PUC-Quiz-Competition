@@ -5,7 +5,7 @@ import Spinner from '../components/Spinner';
 import { api } from '../api/client';
 import { useTeam } from '../context/TeamContext';
 
-export default function RoundEntry({ round = 1 }) {
+export default function RoundEntry() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const teamParam = searchParams.get('team');
@@ -69,32 +69,22 @@ export default function RoundEntry({ round = 1 }) {
       // Ignore storage errors
     }
 
-    // Fullscreen requests must originate from a direct user gesture.
-    try {
-      if (document.documentElement?.requestFullscreen && !document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch {
-      // Ignore unsupported/rejected fullscreen requests and continue the quiz flow.
-    }
+try {
+  const response = await api.register({
+    collegeName: collegeName.trim(),
+    member1Name: p1.trim(),
+    member2Name: p2.trim(),
+  });
 
-    const assignedTeam = teamNumber || (teams[0]?.teamNumber ? String(teams[0].teamNumber) : '1');
+  loginTeam(response.team, response.token);
+  navigate('/briefing', { replace: true });
+} catch (err) {
+  setError(err.message || 'Registration failed. Please try again.');
+} finally {
+  setSubmitting(false);
+}
 
-    try {
-      const response = await api.startSession({
-        teamNumber: Number(assignedTeam),
-        participants: [p1, p2],
-        round,
-      });
-      loginTeam(response.team, response.token);
-      navigate(`/round${round}/quiz`, { replace: true });
-    } catch (err) {
-      setError(err.message || 'Could not verify registration. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
   };
-
   if (loading) return <Spinner full label="Loading registration…" />;
 
   return (
@@ -112,12 +102,10 @@ export default function RoundEntry({ round = 1 }) {
             AVISHKAR 5.0
           </div>
           <h1 className="mt-2 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            {round === 1 ? 'Round 1 Registration' : 'Round 2 Verification'}
+            Quiz Registration
           </h1>
           <p className="mt-2.5 text-xs sm:text-sm text-[#A3A3A3] leading-relaxed max-w-md mx-auto">
-            {round === 1
-              ? 'Welcome, PUC students! Fill in your college and both participant names to register for the quiz.'
-              : 'Verify the same participant names used in Round 1.'}
+            Welcome, PUC students! Fill in your college and both participant names to register for the quiz.
           </p>
         </div>
 

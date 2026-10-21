@@ -5,7 +5,10 @@ const Question = require('../models/Question');
  * Scoring is always server-side so correct answers never reach the client.
  */
 async function scoreAttempt(attempt) {
-  const questions = await Question.find({ round: attempt.round }).lean();
+  const questions = await Question.find({
+    round: attempt.round,
+    set: attempt.set,
+  }).lean();
   const byId = new Map(questions.map((q) => [String(q._id), q]));
 
   let score = 0;

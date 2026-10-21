@@ -5,10 +5,10 @@ const { scoreAttempt } = require('./scoring');
  * Strip the correctAnswer (and explanation) from a question before sending to the client.
  * This is the single chokepoint that prevents answer leakage.
  */
-function publicQuestion(q) {
+function publicQuestion(q, displayOrder) {
   return {
     _id: q._id,
-    order: q.order,
+    order: displayOrder,
     type: q.type,
     questionText: q.questionText,
     imageUrl: q.imageUrl,
@@ -41,10 +41,18 @@ async function autoSubmitIfExpired(attempt) {
  * Build the team-facing attempt payload. NEVER includes score or correct answers.
  */
 async function buildAttemptState(attempt) {
+  const questionIds = attempt.questionOrder?.length
+    ? attempt.questionOrder
+    : attempt.answers.map((answer) => answer.question);
   const questions = await Question.find({
-  round: attempt.round,
-  set: attempt.set || 'A',
-}).sort({ order: 1 });
+    _id: { $in: questionIds },
+    round: attempt.round,
+    set: attempt.set,
+  }).lean();
+  const questionsById = new Map(questions.map((question) => [String(question._id), question]));
+  const orderedQuestions = questionIds
+    .map((questionId) => questionsById.get(String(questionId)))
+    .filter(Boolean);
   const answers = {};
   for (const a of attempt.answers) answers[String(a.question)] = a.selectedOption || '';
 
@@ -60,7 +68,7 @@ async function buildAttemptState(attempt) {
       submittedAt: attempt.submittedAt ? new Date(attempt.submittedAt).getTime() : null,
       timeLimitSeconds: attempt.timeLimitSeconds,
     },
-    questions: questions.map(publicQuestion),
+    questions: orderedQuestions.map((question, index) => publicQuestion(question, index + 1)),
     answers, // { questionId: 'A' | '' }
     serverTime: Date.now(),
     remainingSeconds: remainingSeconds(attempt),

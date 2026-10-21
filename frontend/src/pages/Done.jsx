@@ -1,11 +1,9 @@
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTeam } from '../context/TeamContext';
 import Logo from '../components/Logo';
 
 export default function Done() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const round = Number(params.get('round')) || 1;
   const { team, logoutTeam } = useTeam();
 
   return (
@@ -31,9 +29,9 @@ export default function Done() {
             </svg>
           </div>
 
-          <h1 className="mt-5 text-3xl font-extrabold text-white">Round {round} Submitted!</h1>
+          <h1 className="mt-5 text-3xl font-extrabold text-white">Quiz Submitted</h1>
           <p className="mt-2 text-[#A3A3A3]">
-            Nicely done{team ? `, Team ${team.teamNumber}` : ''}. Your answers are locked in.
+            Your answers have been submitted successfully. Thank you for participating in Avishkar 5.0!
           </p>
 
           <div className="mt-6 rounded-xl border border-[#262626] bg-[#0A0A0A] p-4 text-sm text-[#A3A3A3]">
